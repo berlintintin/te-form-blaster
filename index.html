@@ -797,7 +797,7 @@ function applyLayout(){
   PORTRAIT = window.innerHeight > window.innerWidth * 1.1;
   W = PORTRAIT ? 560 : 960;
   H = PORTRAIT ? 840 : 600;
-  SHIP_Y = PORTRAIT ? H-205 : H-86;
+  SHIP_Y = PORTRAIT ? H-205 : H-150;
   cv.width = W; cv.height = H;
   document.getElementById("stage").style.aspectRatio = W + " / " + H;
   document.body.classList.toggle("portrait", PORTRAIT);
