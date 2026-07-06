@@ -14,16 +14,16 @@
   body{
     background:var(--bg); color:var(--text);
     font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo","Noto Sans JP",sans-serif;
-    display:flex; align-items:center; justify-content:center; min-height:100vh;
+    display:flex; align-items:center; justify-content:center; min-height:100dvh;
   }
-  #wrap{position:relative; width:min(96vw, 980px);}
+  #wrap{position:relative; width:min(98vw, calc((100dvh - 96px) * 1.6));}
   #stage{position:relative; width:100%; aspect-ratio: 960/600; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#05060f;}
   canvas{position:absolute; inset:0; width:100%; height:100%; display:block; cursor:crosshair; touch-action:none;}
 
   /* ---------- HUD: its own bar above the stage — never covers the game ---------- */
   #hud{
-    display:flex; align-items:center; gap:10px; flex-wrap:wrap; row-gap:3px;
-    padding:7px 10px; font-size:12.5px; margin-bottom:6px;
+    display:flex; align-items:center; gap:11px; flex-wrap:wrap; row-gap:4px;
+    padding:8px 12px; font-size:15px; margin-bottom:7px;
     background:var(--panel); border:1px solid var(--line); border-radius:10px;
   }
   #hud .badge{
@@ -35,7 +35,7 @@
   #hud .stat b{color:var(--text); font-variant-numeric:tabular-nums;}
   #hud button{
     background:var(--panel2); color:var(--text); border:1px solid var(--line);
-    border-radius:8px; padding:4px 10px; font-size:12px; cursor:pointer; font-family:inherit;
+    border-radius:8px; padding:5px 12px; font-size:14px; cursor:pointer; font-family:inherit;
     white-space:nowrap;
   }
   #hud button:hover{background:var(--panel2);}
@@ -46,28 +46,30 @@
     background:rgba(5,6,15,.86); backdrop-filter:blur(3px); text-align:center; padding:16px;
     overflow-y:auto; /* scroll when content is taller than the stage */
   }
-  .overlay .card{margin:auto;} /* centers when it fits, scrolls when it doesn't */
+  .overlay .card{margin:auto; position:relative; z-index:1;}
+  #heroArt{position:absolute; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; opacity:.36;}
+  @media (max-width:700px){ #heroArt{opacity:.22;} }
   .hidden{display:none !important;}
   .card{max-width:640px; width:100%;}
   h1{font-size:clamp(26px,4.5vw,42px); letter-spacing:2px; margin-bottom:2px;
      background:linear-gradient(90deg,#7dd3fc,#a78bfa,#f472b6); -webkit-background-clip:text; background-clip:text; color:transparent;}
-  .sub{color:var(--dim); margin-bottom:18px; font-size:14px;}
+  .sub{color:var(--dim); margin-bottom:18px; font-size:17px;}
   .howto{
     text-align:left; background:var(--panel); border:1px solid var(--line); border-radius:12px;
-    padding:14px 18px; font-size:13.5px; line-height:1.75; color:var(--dim); margin-bottom:16px;
+    padding:15px 20px; font-size:16px; line-height:1.85; color:#c3ccf0; margin-bottom:16px;
   }
   .howto b{color:var(--text);}
   .howto .key{display:inline-block; border:1px solid var(--line); border-bottom-width:2px; border-radius:5px;
-    padding:0 6px; font-size:12px; background:var(--panel2); color:var(--text); font-family:ui-monospace,monospace;}
+    padding:0 7px; font-size:14px; background:var(--panel2); color:var(--text); font-family:ui-monospace,monospace;}
   #levelPick{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:16px;}
   #levelPick button{
     background:var(--panel); border:1px solid var(--line); color:var(--dim); border-radius:8px;
-    padding:6px 10px; font-size:12px; cursor:pointer; font-family:inherit;
+    padding:7px 12px; font-size:14px; cursor:pointer; font-family:inherit;
   }
   #levelPick button.sel{color:#05060f; font-weight:700;}
   .bigbtn{
-    font-family:inherit; font-size:18px; font-weight:800; letter-spacing:1px; cursor:pointer;
-    padding:12px 42px; border-radius:12px; border:none; color:#05060f;
+    font-family:inherit; font-size:21px; font-weight:800; letter-spacing:1px; cursor:pointer;
+    padding:14px 46px; border-radius:12px; border:none; color:#05060f;
     background:linear-gradient(90deg,#7dd3fc,#a78bfa); box-shadow:0 0 24px rgba(125,211,252,.35);
   }
   .bigbtn:hover{filter:brightness(1.1);}
@@ -76,57 +78,57 @@
   #feedback{
     position:absolute; left:14px; bottom:14px; z-index:6; width:315px; max-width:44%;
     background:rgba(13,17,38,.94); border:1px solid #7f1d1d; border-left:4px solid var(--bad);
-    border-radius:10px; padding:12px 14px; font-size:13px; line-height:1.6;
+    border-radius:10px; padding:13px 16px; font-size:15.5px; line-height:1.62;
   }
   #feedback.ok{border-color:#14532d; border-left-color:var(--good);}
-  #feedback .fbtitle{color:var(--bad); font-weight:800; margin-bottom:4px; font-size:14px;}
+  #feedback .fbtitle{color:var(--bad); font-weight:800; margin-bottom:4px; font-size:17px;}
   #feedback.ok .fbtitle{color:var(--good);}
   #feedback .fbwhy{color:var(--dim);}
   #feedback .fbrule{color:var(--text); background:var(--panel2); border-radius:8px; padding:8px 10px; margin-top:8px;}
   #feedback .fbrule b{color:var(--good);}
   #feedback .fbex{color:var(--text); margin-top:8px; border-top:1px solid var(--line); padding-top:8px;}
-  #feedback .fbex span{color:var(--dim); font-size:12px;}
+  #feedback .fbex span{color:var(--dim); font-size:13.5px;}
 
   /* ---------- mode picker ---------- */
   #modePick{display:flex; gap:8px; justify-content:center; margin-bottom:12px;}
   #modePick button{
-    flex:1; max-width:280px; text-align:left; background:var(--panel); border:1px solid var(--line);
-    color:var(--dim); border-radius:10px; padding:10px 12px; font-size:12.5px; cursor:pointer;
+    flex:1; max-width:300px; text-align:left; background:var(--panel); border:1px solid var(--line);
+    color:var(--dim); border-radius:10px; padding:12px 14px; font-size:14px; cursor:pointer;
     font-family:inherit; line-height:1.5;
   }
-  #modePick button b{color:var(--text); display:block; font-size:14px;}
+  #modePick button b{color:var(--text); display:block; font-size:16.5px; margin-bottom:2px;}
   #modePick button.sel{border-color:var(--accent); color:var(--text); box-shadow:0 0 14px rgba(125,211,252,.25);}
 
   /* ---------- toast (correct answer) ---------- */
   #toast{
     position:absolute; left:50%; transform:translateX(-50%) translateY(8px); bottom:118px; z-index:6;
     background:rgba(13,17,38,.94); border:1px solid #14532d; border-left:4px solid var(--good);
-    border-radius:10px; padding:9px 16px; font-size:13.5px; opacity:0; transition:all .25s; pointer-events:none;
+    border-radius:10px; padding:11px 18px; font-size:16px; opacity:0; transition:all .25s; pointer-events:none;
     max-width:80%; text-align:center; line-height:1.55;
   }
   #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
   #toast b{color:var(--good);}
-  #toast .rule{color:var(--dim); font-size:12.5px;}
+  #toast .rule{color:var(--dim); font-size:14px;}
 
   /* ---------- cheat sheet ---------- */
   #cheat .card{max-width:560px; text-align:left; background:var(--panel); border:1px solid var(--line);
     border-radius:14px; padding:20px 24px; max-height:88%; overflow:auto;}
-  #cheat h2{font-size:18px; margin-bottom:10px; color:var(--accent);}
-  #cheat table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  #cheat h2{font-size:21px; margin-bottom:10px; color:var(--accent);}
+  #cheat table{width:100%; border-collapse:collapse; font-size:15.5px;}
   #cheat td{padding:7px 8px; border-bottom:1px solid var(--line); vertical-align:top; line-height:1.5;}
   #cheat td:first-child{color:var(--accent); font-weight:700; white-space:nowrap;}
-  #cheat .note{color:var(--dim); font-size:12.5px; margin-top:12px; line-height:1.6;}
+  #cheat .note{color:var(--dim); font-size:14px; margin-top:12px; line-height:1.6;}
   #cheat .close{margin-top:14px; text-align:center;}
 
   /* ---------- level up ---------- */
   #levelup h2{font-size:30px; letter-spacing:3px; margin-bottom:6px; color:var(--good); text-shadow:0 0 18px rgba(74,222,128,.6);}
-  #levelup .lname{font-size:20px; font-weight:800; margin-bottom:4px;}
-  #levelup .ldesc{color:var(--dim); font-size:14px;}
+  #levelup .lname{font-size:24px; font-weight:800; margin-bottom:4px;}
+  #levelup .ldesc{color:var(--dim); font-size:17px;}
 
   /* ---------- portrait: explanation bar spans the bottom, under the verb box ---------- */
   .portrait #feedback{
     left:8px; right:8px; bottom:8px; width:auto; max-width:none;
-    border-radius:10px; font-size:12.5px; padding:9px 12px; line-height:1.5;
+    border-radius:10px; font-size:15.5px; padding:11px 14px; line-height:1.5;
   }
   .portrait #feedback .fbrule{margin-top:6px; padding:6px 9px;}
   .portrait #feedback .fbex{margin-top:6px; padding-top:6px;}
@@ -136,16 +138,17 @@
   @media (max-width:700px){
     #wrap{width:100vw;}
     #stage{border-radius:0; border-left:none; border-right:none;}
-    #hud{flex-wrap:wrap; row-gap:2px; font-size:10.5px; padding:5px 8px; gap:7px;}
-    #hud .badge{padding:2px 8px;}
-    .howto{font-size:11.5px; line-height:1.65; padding:10px 12px; margin-bottom:12px;}
-    .sub{font-size:12px; margin-bottom:12px;}
-    #modePick{flex-direction:column; gap:6px;}
-    #modePick button{max-width:none; padding:8px 10px;}
-    #levelPick button{font-size:11px; padding:5px 8px;}
-    .bigbtn{width:100%; padding:12px 0;}
-    #feedback{width:58%; max-width:none; font-size:11.5px; padding:9px 10px;}
-    #toast{font-size:11.5px; bottom:104px;}
+    #hud{flex-wrap:wrap; row-gap:3px; font-size:14.5px; padding:6px 9px; gap:9px;}
+    #hud .badge{padding:3px 9px;}
+    #hud button{font-size:13.5px; padding:5px 11px;}
+    .howto{font-size:14px; line-height:1.7; padding:12px 14px; margin-bottom:12px;}
+    .sub{font-size:14.5px; margin-bottom:12px;}
+    #modePick{flex-direction:column; gap:7px;}
+    #modePick button{max-width:none; padding:11px 13px; font-size:14px;}
+    #modePick button b{font-size:16px;}
+    #levelPick button{font-size:13.5px; padding:7px 11px;}
+    .bigbtn{width:100%; padding:14px 0; font-size:20px;}
+    #feedback{font-size:14.5px;}
     #genkiSlider{width:min(280px, 92%) !important;}
     #cheat .card{padding:14px 14px;}
     #cheat table{font-size:11.5px;}
@@ -173,6 +176,62 @@
     <div id="toast"></div>
 
     <div id="start" class="overlay">
+      <svg id="heroArt" viewBox="0 0 960 600" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+        <defs>
+          <linearGradient id="haStroke" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#7dd3fc"/>
+            <stop offset="0.5" stop-color="#a78bfa"/>
+            <stop offset="1" stop-color="#f472b6"/>
+          </linearGradient>
+          <radialGradient id="haHalo" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0" stop-color="#7dd3fc" stop-opacity="0.35"/>
+            <stop offset="1" stop-color="#7dd3fc" stop-opacity="0"/>
+          </radialGradient>
+          <filter id="haGlow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="2" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <circle cx="470" cy="300" r="300" fill="url(#haHalo)"/>
+        <g fill="none" stroke="url(#haStroke)" stroke-width="2.4"
+           stroke-linecap="round" stroke-linejoin="round" filter="url(#haGlow)">
+          <path d="M110 486 Q480 452 850 486"/>
+          <path d="M700 92 L742 300 L784 332 L732 314 L718 356 L700 334 L682 356 L668 314 L616 332 L658 300 Z"/>
+          <ellipse cx="700" cy="182" rx="15" ry="24"/>
+          <path d="M700 122 L700 300"/>
+          <path d="M676 246 L724 246"/>
+          <path d="M690 360 L686 396 M700 360 L700 404 M710 360 L714 396" stroke-opacity="0.8"/>
+          <g transform="translate(-238,0)">
+          <circle cx="372" cy="232" r="45"/>
+          <path d="M340 233 Q372 264 404 233"/>
+          <path d="M345 219 Q372 205 399 219"/>
+          <path d="M372 187 L372 171"/><circle cx="372" cy="167" r="3"/>
+          <path d="M356 274 L358 289 M388 274 L386 289"/>
+          <path d="M348 290 L372 307 L396 290"/>
+          <path d="M348 291 C324 301 320 337 327 405"/>
+          <path d="M396 291 C420 301 424 337 417 405"/>
+          <path d="M327 405 Q372 421 417 405"/>
+          <path d="M372 307 L372 405"/>
+          <circle cx="372" cy="345" r="9"/>
+          <path d="M330 301 C300 323 296 353 307 373 C312 385 324 389 333 383"/>
+          <path d="M414 301 C437 325 443 369 436 411"/>
+          <circle cx="435" cy="417" r="8"/>
+          <path d="M339 405 L332 470 M405 405 L413 470"/>
+          <path d="M332 470 L314 483 L338 483 Z"/>
+          <path d="M413 470 L432 483 L408 483 Z"/>
+          <path d="M486 486 C468 442 476 410 502 405"/>
+          <circle cx="526" cy="408" r="24"/>
+          <path d="M510 390 L502 367 L520 386 Z"/>
+          <path d="M542 390 L550 367 L532 386 Z"/>
+          <path d="M546 412 L562 416 L547 422"/>
+          <circle cx="536" cy="406" r="2" fill="url(#haStroke)" stroke="none"/>
+          <path d="M513 442 L511 486 M529 442 L531 486"/>
+          <path d="M502 430 C510 442 518 444 526 432"/>
+          <path d="M482 452 C460 438 464 410 486 415 C478 427 478 441 488 447"/>
+          <path d="M486 486 L512 486"/>
+          </g>
+        </g>
+      </svg>
       <div class="card">
         <h1>TE-FORM BLASTER</h1>
         <div class="sub">てフォーム・ブラスター — shoot the correct て-form</div>
@@ -192,11 +251,11 @@
           <button data-mode="hero"><b>🚀 HERO</b>Twice the descent speed. For aces only.</button>
         </div>
         <div id="genkiRow">
-          <label style="cursor:pointer; color:var(--dim); font-size:13px;">
+          <label style="cursor:pointer; color:var(--dim); font-size:15.5px;">
             <input type="checkbox" id="genkiOn" checked>
             <b style="color:#34d399;">GENKI I mode</b> — only verbs through lesson <b id="genkiLbl" style="color:var(--text);">6</b>
           </label><br>
-          <input type="range" id="genkiSlider" min="3" max="12" value="6" style="width:280px; accent-color:#34d399; margin:8px 0 2px;">
+          <input type="range" id="genkiSlider" min="3" max="12" value="6" style="width:300px; height:22px; accent-color:#34d399; margin:8px 0 2px;">
           <div style="color:var(--dim); font-size:11.5px; margin-bottom:10px;">L3 ─────────── L12 &nbsp;(lessons 1–2 have no verbs)</div>
         </div>
         <div id="levelPick"></div>
@@ -728,15 +787,15 @@ let PORTRAIT = false, W = 960, H = 600, SHIP_Y = 514;
 function shipY(){ return SHIP_Y - S.lift; }
 function applyLayout(){
   PORTRAIT = window.innerHeight > window.innerWidth * 1.1;
-  W = PORTRAIT ? 620 : 960;
+  W = PORTRAIT ? 560 : 960;
   H = PORTRAIT ? 840 : 600;
-  SHIP_Y = PORTRAIT ? H-190 : H-86;
+  SHIP_Y = PORTRAIT ? H-205 : H-86;
   cv.width = W; cv.height = H;
   document.getElementById("stage").style.aspectRatio = W + " / " + H;
   document.body.classList.toggle("portrait", PORTRAIT);
   // reserve room for the HUD bar; never let the stage outgrow the viewport
   document.getElementById("wrap").style.width =
-    `min(96vw, 980px, calc((100vh - 120px)*${(W/H).toFixed(4)}))`;
+    `min(98vw, calc((100dvh - 96px) * ${(W/H).toFixed(4)}))`;
   stars = Array.from({length:90}, () => ({ x:Math.random()*W, y:Math.random()*H, z:.3+Math.random()*.9 }));
   S.shipX = W/2; S.aimX = W/2;
 }
@@ -767,7 +826,24 @@ window.addEventListener("resize", () => { if (!S.running) applyLayout(); });
 window.addEventListener("orientationchange", () => { if (!S.running) setTimeout(applyLayout, 250); });
 
 // ------------------------------ AUDIO ------------------------------
-let AC = null;
+let AC = null, audioUnlocked = false;
+// iOS/Safari start the AudioContext SUSPENDED — it only wakes inside a user gesture.
+// (Speech synthesis uses a separate system, which is why only the voice was audible.)
+function unlockAudio(){
+  try {
+    if (!AC) AC = new (window.AudioContext||window.webkitAudioContext)();
+    if (AC.state === "suspended") AC.resume();
+    if (!audioUnlocked){
+      audioUnlocked = true;
+      const o = AC.createOscillator(), g = AC.createGain();
+      g.gain.value = 0.0001; o.connect(g).connect(AC.destination);
+      o.start(); o.stop(AC.currentTime + 0.02);
+    }
+  } catch(e){}
+}
+["touchstart","pointerdown","mousedown","keydown"].forEach(ev =>
+  window.addEventListener(ev, unlockAudio, { passive:true }));
+
 function beep(freq, dur, type="square", vol=0.05, when=0, slide=0){
   if (!S.soundOn) return;
   try {
@@ -864,15 +940,14 @@ function newRound(keepVerb){
   // the explanation box stays visible so the last confirmation can be read
   // spawn enemies in 4 slots, swooping in from top
   S.enemies = S.opts.map((o, i) => {
-    ctx.font = `600 ${PORTRAIT ? 30 : 25}px sans-serif`;
+    ctx.font = `600 ${PORTRAIT ? 36 : 27}px sans-serif`;
     const tw = ctx.measureText(o.t).width;
     return {
       opt:o, idx:i,
       // portrait: 2x2 with staggered columns + wide row gap so meteors never pile up
-      baseX: (PORTRAIT
-        ? W * (Math.floor(i/2) === 0 ? (i%2 ? 0.65 : 0.35) : (i%2 ? 0.78 : 0.22))
-        : W*(i+1)/5) + (Math.random()*24-12),
-      baseY: PORTRAIT ? H*0.07 + Math.floor(i/2)*(H*0.17) : H*0.12 + (i%2)*34,
+      baseX: (PORTRAIT ? W * (i%2 ? 0.76 : 0.24) : W*(i+1)/5)
+             + (Math.random()*(PORTRAIT?12:24) - (PORTRAIT?6:12)),
+      baseY: PORTRAIT ? H*0.07 + Math.floor(i/2)*(H*0.185) : H*0.12 + (i%2)*34,
       x:0, y:-60,
       w: Math.max(PORTRAIT ? 104 : 94, tw + (PORTRAIT ? 48 : 42)), h: PORTRAIT ? 56 : 50,
       phase: Math.random()*Math.PI*2,
@@ -1016,7 +1091,7 @@ function retroSay(text){
   if (window.speechSynthesis){
     try {
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = "ja-JP"; u.pitch = 1.8; u.rate = 1.1;
+      u.lang = "ja-JP"; u.pitch = 1.0; u.rate = 1.0;
       const jp = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith("ja"));
       if (jp) u.voice = jp;
       setTimeout(() => speechSynthesis.speak(u), sylls*85 + 60);
@@ -1122,7 +1197,7 @@ function update(){
     if (!fb.classList.contains("hidden")){
       const scale = cv.getBoundingClientRect().width / W;
       const barTop = H - (fb.offsetHeight + 16) / scale;
-      liftTarget = Math.max(0, (H - 96 + 12) - barTop); // keep verb box bottom above the bar
+      liftTarget = Math.max(0, (H - 42) - barTop); // keep verb box bottom above the bar
     }
   }
   S.lift += (liftTarget - S.lift) * 0.18;
@@ -1334,7 +1409,7 @@ function drawEnemy(x, y, e){
   ctx.restore();
   // text drawn unrotated so it's always readable
   ctx.fillStyle = e.dim ? "#8f5b6b" : "#eef1ff";
-  ctx.font = `600 ${PORTRAIT ? 30 : 25}px sans-serif`;
+  ctx.font = `600 ${PORTRAIT ? 36 : 27}px sans-serif`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText(e.opt.t, x, y+1);
   if (e.dim){
@@ -1381,24 +1456,37 @@ function drawVerbPlate(){
   if (!S.verb) return;
   const v = S.verb;
   const reading = v.k === v.r ? "" : `（${v.r}）`;
-  const line1 = v.k + reading;
-  const line2 = `${v.ro} — ${v.m}`;
+  const line1 = v.k + reading;      // kanji + kana
+  const meaning = v.m;              // English definition — learn this too
+  const romaji = v.ro;
+  const x = W/2;
+  const big = PORTRAIT ? 38 : 34;   // 漢字（かな）
+  const mid = PORTRAIT ? 25 : 22;   // English definition
+  const sm  = PORTRAIT ? 17 : 15;   // romaji
+  const boxH = PORTRAIT ? 104 : 96;
   ctx.textAlign = "center";
-  ctx.font = "800 30px sans-serif";
+  ctx.font = `800 ${big}px sans-serif`;
   const w1 = ctx.measureText(line1).width;
-  ctx.font = "13px sans-serif";
-  const w2 = ctx.measureText(line2).width;
-  const w = Math.max(w1, w2) + 44;
-  const x = W/2, y = PORTRAIT ? H-122 - S.lift : H-30;
-  ctx.fillStyle = "rgba(13,17,38,.92)";
-  ctx.strokeStyle = levelColor(); ctx.lineWidth = 1.5;
-  roundRect(x-w/2, y-26, w, 52, 10); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = "#e8ecff";
-  ctx.font = "800 26px sans-serif"; ctx.textBaseline = "alphabetic";
-  ctx.fillText(line1, x, y+2);
-  ctx.fillStyle = "#8f9bce";
-  ctx.font = "12.5px sans-serif";
-  ctx.fillText(line2, x, y+19);
+  ctx.font = `700 ${mid}px sans-serif`;
+  const wm = ctx.measureText(meaning).width;
+  ctx.font = `${sm}px sans-serif`;
+  const wr = ctx.measureText(romaji).width;
+  const w = Math.max(w1, wm, wr) + 54;
+  const cy = PORTRAIT ? (H - 104 - S.lift) : (H - 54);
+  const top = cy - boxH/2;
+  ctx.fillStyle = "rgba(13,17,38,.94)";
+  ctx.strokeStyle = levelColor(); ctx.lineWidth = 1.8;
+  roundRect(x - w/2, top, w, boxH, 12); ctx.fill(); ctx.stroke();
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `800 ${big}px sans-serif`;
+  ctx.fillText(line1, x, top + big + 4);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `700 ${mid}px sans-serif`;
+  ctx.fillText(meaning, x, top + big + mid + 12);
+  ctx.fillStyle = "#9aa6d4";
+  ctx.font = `${sm}px sans-serif`;
+  ctx.fillText(romaji, x, top + boxH - 12);
 }
 
 function roundRect(x, y, w, h, r){
@@ -1553,6 +1641,7 @@ pickWrap.children[0].classList.add("sel");
 pickWrap.children[0].style.background = LEVELS[0].color;
 
 onTap(document.getElementById("btnStart"), () => {
+  unlockAudio();  // make sure phone audio is awake for the whole game
   applyLayout(); // re-measure right at launch — mobile webviews lie at first paint
   document.getElementById("start").classList.add("hidden");
   S.levelIdx = chosenLevel;
