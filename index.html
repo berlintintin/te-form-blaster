@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Te-Form Blaster — てフォーム・ブラスター</title>
+<style>
+  :root{
+    --bg:#05060f; --panel:#0d1126; --panel2:#141a38; --line:#26305e;
+    --text:#e8ecff; --dim:#8f9bce; --good:#4ade80; --bad:#f87171; --accent:#7dd3fc;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo","Noto Sans JP",sans-serif;
+    display:flex; align-items:center; justify-content:center; min-height:100vh;
+  }
+  #wrap{position:relative; width:min(96vw, 980px);}
+  #stage{position:relative; width:100%; aspect-ratio: 960/600; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#05060f;}
+  canvas{position:absolute; inset:0; width:100%; height:100%; display:block; cursor:crosshair; touch-action:none;}
+
+  /* ---------- HUD: its own bar above the stage — never covers the game ---------- */
+  #hud{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap; row-gap:3px;
+    padding:7px 10px; font-size:12.5px; margin-bottom:6px;
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+  }
+  #hud .badge{
+    padding:3px 10px; border-radius:20px; border:1px solid var(--line);
+    background:var(--panel2); font-weight:700; letter-spacing:.5px; white-space:nowrap;
+  }
+  #hud .spacer{flex:1;}
+  #hud .stat{color:var(--dim); white-space:nowrap;}
+  #hud .stat b{color:var(--text); font-variant-numeric:tabular-nums;}
+  #hud button{
+    background:var(--panel2); color:var(--text); border:1px solid var(--line);
+    border-radius:8px; padding:4px 10px; font-size:12px; cursor:pointer; font-family:inherit;
+    white-space:nowrap;
+  }
+  #hud button:hover{background:var(--panel2);}
+
+  /* ---------- overlays ---------- */
+  .overlay{
+    position:absolute; inset:0; z-index:10; display:flex; align-items:flex-start; justify-content:center;
+    background:rgba(5,6,15,.86); backdrop-filter:blur(3px); text-align:center; padding:16px;
+    overflow-y:auto; /* scroll when content is taller than the stage */
+  }
+  .overlay .card{margin:auto;} /* centers when it fits, scrolls when it doesn't */
+  .hidden{display:none !important;}
+  .card{max-width:640px; width:100%;}
+  h1{font-size:clamp(26px,4.5vw,42px); letter-spacing:2px; margin-bottom:2px;
+     background:linear-gradient(90deg,#7dd3fc,#a78bfa,#f472b6); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .sub{color:var(--dim); margin-bottom:18px; font-size:14px;}
+  .howto{
+    text-align:left; background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:14px 18px; font-size:13.5px; line-height:1.75; color:var(--dim); margin-bottom:16px;
+  }
+  .howto b{color:var(--text);}
+  .howto .key{display:inline-block; border:1px solid var(--line); border-bottom-width:2px; border-radius:5px;
+    padding:0 6px; font-size:12px; background:var(--panel2); color:var(--text); font-family:ui-monospace,monospace;}
+  #levelPick{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:16px;}
+  #levelPick button{
+    background:var(--panel); border:1px solid var(--line); color:var(--dim); border-radius:8px;
+    padding:6px 10px; font-size:12px; cursor:pointer; font-family:inherit;
+  }
+  #levelPick button.sel{color:#05060f; font-weight:700;}
+  .bigbtn{
+    font-family:inherit; font-size:18px; font-weight:800; letter-spacing:1px; cursor:pointer;
+    padding:12px 42px; border-radius:12px; border:none; color:#05060f;
+    background:linear-gradient(90deg,#7dd3fc,#a78bfa); box-shadow:0 0 24px rgba(125,211,252,.35);
+  }
+  .bigbtn:hover{filter:brightness(1.1);}
+
+  /* ---------- explanation box (bottom-left, out of the meteors' way) ---------- */
+  #feedback{
+    position:absolute; left:14px; bottom:14px; z-index:6; width:315px; max-width:44%;
+    background:rgba(13,17,38,.94); border:1px solid #7f1d1d; border-left:4px solid var(--bad);
+    border-radius:10px; padding:12px 14px; font-size:13px; line-height:1.6;
+  }
+  #feedback.ok{border-color:#14532d; border-left-color:var(--good);}
+  #feedback .fbtitle{color:var(--bad); font-weight:800; margin-bottom:4px; font-size:14px;}
+  #feedback.ok .fbtitle{color:var(--good);}
+  #feedback .fbwhy{color:var(--dim);}
+  #feedback .fbrule{color:var(--text); background:var(--panel2); border-radius:8px; padding:8px 10px; margin-top:8px;}
+  #feedback .fbrule b{color:var(--good);}
+  #feedback .fbex{color:var(--text); margin-top:8px; border-top:1px solid var(--line); padding-top:8px;}
+  #feedback .fbex span{color:var(--dim); font-size:12px;}
+
+  /* ---------- mode picker ---------- */
+  #modePick{display:flex; gap:8px; justify-content:center; margin-bottom:12px;}
+  #modePick button{
+    flex:1; max-width:280px; text-align:left; background:var(--panel); border:1px solid var(--line);
+    color:var(--dim); border-radius:10px; padding:10px 12px; font-size:12.5px; cursor:pointer;
+    font-family:inherit; line-height:1.5;
+  }
+  #modePick button b{color:var(--text); display:block; font-size:14px;}
+  #modePick button.sel{border-color:var(--accent); color:var(--text); box-shadow:0 0 14px rgba(125,211,252,.25);}
+
+  /* ---------- toast (correct answer) ---------- */
+  #toast{
+    position:absolute; left:50%; transform:translateX(-50%) translateY(8px); bottom:118px; z-index:6;
+    background:rgba(13,17,38,.94); border:1px solid #14532d; border-left:4px solid var(--good);
+    border-radius:10px; padding:9px 16px; font-size:13.5px; opacity:0; transition:all .25s; pointer-events:none;
+    max-width:80%; text-align:center; line-height:1.55;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  #toast b{color:var(--good);}
+  #toast .rule{color:var(--dim); font-size:12.5px;}
+
+  /* ---------- cheat sheet ---------- */
+  #cheat .card{max-width:560px; text-align:left; background:var(--panel); border:1px solid var(--line);
+    border-radius:14px; padding:20px 24px; max-height:88%; overflow:auto;}
+  #cheat h2{font-size:18px; margin-bottom:10px; color:var(--accent);}
+  #cheat table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  #cheat td{padding:7px 8px; border-bottom:1px solid var(--line); vertical-align:top; line-height:1.5;}
+  #cheat td:first-child{color:var(--accent); font-weight:700; white-space:nowrap;}
+  #cheat .note{color:var(--dim); font-size:12.5px; margin-top:12px; line-height:1.6;}
+  #cheat .close{margin-top:14px; text-align:center;}
+
+  /* ---------- level up ---------- */
+  #levelup h2{font-size:30px; letter-spacing:3px; margin-bottom:6px; color:var(--good); text-shadow:0 0 18px rgba(74,222,128,.6);}
+  #levelup .lname{font-size:20px; font-weight:800; margin-bottom:4px;}
+  #levelup .ldesc{color:var(--dim); font-size:14px;}
+
+  /* ---------- portrait: explanation bar spans the bottom, under the verb box ---------- */
+  .portrait #feedback{
+    left:8px; right:8px; bottom:8px; width:auto; max-width:none;
+    border-radius:10px; font-size:12.5px; padding:9px 12px; line-height:1.5;
+  }
+  .portrait #feedback .fbrule{margin-top:6px; padding:6px 9px;}
+  .portrait #feedback .fbex{margin-top:6px; padding-top:6px;}
+  .portrait #toast{bottom:34%;}
+
+  /* ---------- small screens (phone / tablet) ---------- */
+  @media (max-width:700px){
+    #wrap{width:100vw;}
+    #stage{border-radius:0; border-left:none; border-right:none;}
+    #hud{flex-wrap:wrap; row-gap:2px; font-size:10.5px; padding:5px 8px; gap:7px;}
+    #hud .badge{padding:2px 8px;}
+    .howto{font-size:11.5px; line-height:1.65; padding:10px 12px; margin-bottom:12px;}
+    .sub{font-size:12px; margin-bottom:12px;}
+    #modePick{flex-direction:column; gap:6px;}
+    #modePick button{max-width:none; padding:8px 10px;}
+    #levelPick button{font-size:11px; padding:5px 8px;}
+    .bigbtn{width:100%; padding:12px 0;}
+    #feedback{width:58%; max-width:none; font-size:11.5px; padding:9px 10px;}
+    #toast{font-size:11.5px; bottom:104px;}
+    #genkiSlider{width:min(280px, 92%) !important;}
+    #cheat .card{padding:14px 14px;}
+    #cheat table{font-size:11.5px;}
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <span class="badge" id="hudLevel">LV 1</span>
+    <span class="stat">SCORE <b id="hudScore">0</b></span>
+    <span class="stat">STREAK <b id="hudStreak">0</b></span>
+    <span class="stat">HIT % <b id="hudAcc">–</b></span>
+    <span class="stat" title="Meteor fragments charge this — at 100 your guns upgrade and it resets to 20">POWER <b id="hudPwr">0/100</b></span>
+    <span class="stat">GUNS <b id="hudGun">LV1</b></span>
+    <span class="stat" id="hudLives"></span>
+    <span class="spacer"></span>
+    <button id="btnSound" title="sound">♪ ON</button>
+    <button id="btnCheat" title="te-form rules">活用表</button>
+  </div>
+  <div id="stage">
+    <canvas id="game" width="960" height="600"></canvas>
+
+    <div id="feedback" class="hidden"></div>
+    <div id="toast"></div>
+
+    <div id="start" class="overlay">
+      <div class="card">
+        <h1>TE-FORM BLASTER</h1>
+        <div class="sub">てフォーム・ブラスター — shoot the correct て-form</div>
+        <div class="howto">
+          Your ship carries a <b>dictionary form</b>. Four て-form <b>meteors</b> hover above —
+          only one is right. <b>Blast it</b>, and its fragments charge your <b>POWER meter</b> —
+          fill it to 100 and your guns upgrade (LV1→LV4: bigger plasma, faster fire, armored
+          meteors crack in fewer hits), then it resets to 20 and you build again.<br>
+          <span class="key">mouse</span> aim &nbsp;·&nbsp; <span class="key">click</span> / <span class="key">space</span> fire
+          &nbsp;·&nbsp; <span class="key">1</span>–<span class="key">4</span> auto-aim shot &nbsp;·&nbsp; <span class="key">H</span> rules<br>
+          Miss? You get a hint, then another — the box confirms the <b>why</b> (with an
+          example sentence) once you nail it. Missed verbs sneak back until you own them.
+        </div>
+        <div id="modePick">
+          <button data-mode="study"><b>📖 STUDY</b>Meteors hold perfectly still. Zero pressure, all the time you need.</button>
+          <button data-mode="cadet" class="sel"><b>🎖️ CADET</b>Meteors drift down slowly. 3 ships, armored meteors take a few hits.</button>
+          <button data-mode="hero"><b>🚀 HERO</b>Twice the descent speed. For aces only.</button>
+        </div>
+        <div id="genkiRow">
+          <label style="cursor:pointer; color:var(--dim); font-size:13px;">
+            <input type="checkbox" id="genkiOn" checked>
+            <b style="color:#34d399;">GENKI I mode</b> — only verbs through lesson <b id="genkiLbl" style="color:var(--text);">6</b>
+          </label><br>
+          <input type="range" id="genkiSlider" min="3" max="12" value="6" style="width:280px; accent-color:#34d399; margin:8px 0 2px;">
+          <div style="color:var(--dim); font-size:11.5px; margin-bottom:10px;">L3 ─────────── L12 &nbsp;(lessons 1–2 have no verbs)</div>
+        </div>
+        <div id="levelPick"></div>
+        <button class="bigbtn" id="btnStart">LAUNCH ▶</button>
+      </div>
+    </div>
+
+    <div id="gameover" class="overlay hidden">
+      <div class="card">
+        <h2 style="color:var(--bad); font-size:32px; letter-spacing:3px; margin-bottom:8px;">GAME OVER</h2>
+        <div class="sub" id="goStats"></div>
+        <button class="bigbtn" id="btnAgain">TRY AGAIN ▶</button>
+      </div>
+    </div>
+
+    <div id="levelup" class="overlay hidden">
+      <div class="card">
+        <h2>LEVEL CLEAR!</h2>
+        <div class="lname" id="luName"></div>
+        <div class="ldesc" id="luDesc"></div>
+      </div>
+    </div>
+
+    <div id="cheat" class="overlay hidden">
+      <div class="card">
+        <h2>て-form rules（活用表）</h2>
+        <table>
+          <tr><td>う・つ・る → って</td><td>買う→買って ・ 待つ→待って ・ 乗る→乗って</td></tr>
+          <tr><td>ぶ・む・ぬ → んで</td><td>遊ぶ→遊んで ・ 飲む→飲んで ・ 死ぬ→死んで</td></tr>
+          <tr><td>く → いて</td><td>書く→書いて &nbsp;(exception: 行く→行って!)</td></tr>
+          <tr><td>ぐ → いで</td><td>泳ぐ→泳いで</td></tr>
+          <tr><td>す → して</td><td>話す→話して</td></tr>
+          <tr><td>る-verbs → て</td><td>ichidan: drop る, add て。食べる→食べて ・ 見る→見て</td></tr>
+          <tr><td>irregular</td><td>する→して ・ 来る（くる）→来て（きて）</td></tr>
+        </table>
+        <div class="note">
+          ⚠️ Sneaky ones: 帰る・入る・走る・切る・要る LOOK like る-verbs but are godan → 帰って、入って、走って、切って。<br>
+          🎵 The te-form song grouping: <b>う・つ・る→って / ぶ・む・ぬ→んで / く→いて / ぐ→いで / す→して</b>
+        </div>
+        <div class="close"><button class="bigbtn" id="btnCheatClose" style="font-size:14px; padding:8px 26px;">BACK ▶</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+// ============================= LOGIC-START =============================
+// Verb: k = display form, r = reading (kana), ro = romaji, m = meaning,
+// g = group (u,tsu,ru,mu,bu,nu,ku,gu,su,ichidan,suru,kuru,iku), lv = JLPT (5 or 4)
+const VERBS = [
+  // ---- N5 godan: う ----
+  {k:"会う", r:"あう", ro:"au", m:"meet", g:"u", lv:5, gk:4},
+  {k:"買う", r:"かう", ro:"kau", m:"buy", g:"u", lv:5, gk:4},
+  {k:"使う", r:"つかう", ro:"tsukau", m:"use", g:"u", lv:5, gk:6},
+  {k:"歌う", r:"うたう", ro:"utau", m:"sing", g:"u", lv:5, gk:7},
+  {k:"洗う", r:"あらう", ro:"arau", m:"wash", g:"u", lv:5, gk:8},
+  {k:"習う", r:"ならう", ro:"narau", m:"learn", g:"u", lv:5, gk:11},
+  // ---- N5 godan: つ ----
+  {k:"待つ", r:"まつ", ro:"matsu", m:"wait", g:"tsu", lv:5, gk:4},
+  {k:"立つ", r:"たつ", ro:"tatsu", m:"stand", g:"tsu", lv:5, gk:6},
+  {k:"持つ", r:"もつ", ro:"motsu", m:"hold / carry", g:"tsu", lv:5, gk:6},
+  // ---- N5 godan: る ----
+  {k:"撮る", r:"とる", ro:"toru", m:"take (a photo)", g:"ru", lv:5, gk:4},
+  {k:"乗る", r:"のる", ro:"noru", m:"ride", g:"ru", lv:5, gk:5},
+  {k:"帰る", r:"かえる", ro:"kaeru", m:"go home", g:"ru", lv:5, trap:true, gk:3},
+  {k:"入る", r:"はいる", ro:"hairu", m:"enter", g:"ru", lv:5, trap:true, gk:6},
+  {k:"走る", r:"はしる", ro:"hashiru", m:"run", g:"ru", lv:5, trap:true},
+  {k:"座る", r:"すわる", ro:"suwaru", m:"sit", g:"ru", lv:5, gk:6},
+  {k:"終わる", r:"おわる", ro:"owaru", m:"end", g:"ru", lv:5, gk:9},
+  {k:"分かる", r:"わかる", ro:"wakaru", m:"understand", g:"ru", lv:5, gk:4},
+  {k:"作る", r:"つくる", ro:"tsukuru", m:"make", g:"ru", lv:5, gk:8},
+  {k:"売る", r:"うる", ro:"uru", m:"sell", g:"ru", lv:5},
+  {k:"送る", r:"おくる", ro:"okuru", m:"send", g:"ru", lv:5},
+  {k:"切る", r:"きる", ro:"kiru", m:"cut", g:"ru", lv:5, trap:true, gk:8},
+  {k:"曲がる", r:"まがる", ro:"magaru", m:"turn (a corner)", g:"ru", lv:5},
+  {k:"止まる", r:"とまる", ro:"tomaru", m:"stop", g:"ru", lv:5},
+  {k:"かかる", r:"かかる", ro:"kakaru", m:"take (time/money)", g:"ru", lv:5, gk:10},
+  // ---- N5 godan: む ----
+  {k:"飲む", r:"のむ", ro:"nomu", m:"drink", g:"mu", lv:5, gk:3},
+  {k:"読む", r:"よむ", ro:"yomu", m:"read", g:"mu", lv:5, gk:3},
+  {k:"休む", r:"やすむ", ro:"yasumu", m:"rest", g:"mu", lv:5, gk:6},
+  {k:"住む", r:"すむ", ro:"sumu", m:"live (reside)", g:"mu", lv:5, gk:7},
+  // ---- N5 godan: ぶ ----
+  {k:"遊ぶ", r:"あそぶ", ro:"asobu", m:"play / hang out", g:"bu", lv:5, gk:6},
+  {k:"呼ぶ", r:"よぶ", ro:"yobu", m:"call (someone)", g:"bu", lv:5},
+  {k:"飛ぶ", r:"とぶ", ro:"tobu", m:"fly", g:"bu", lv:5},
+  // ---- N5 godan: ぬ ----
+  {k:"死ぬ", r:"しぬ", ro:"shinu", m:"die", g:"nu", lv:5, gk:6},
+  // ---- N5 godan: く ----
+  {k:"書く", r:"かく", ro:"kaku", m:"write", g:"ku", lv:5, gk:4},
+  {k:"聞く", r:"きく", ro:"kiku", m:"listen / ask", g:"ku", lv:5, gk:3},
+  {k:"歩く", r:"あるく", ro:"aruku", m:"walk", g:"ku", lv:5},
+  {k:"働く", r:"はたらく", ro:"hataraku", m:"work", g:"ku", lv:5, gk:11},
+  {k:"着く", r:"つく", ro:"tsuku", m:"arrive", g:"ku", lv:5},
+  {k:"引く", r:"ひく", ro:"hiku", m:"pull", g:"ku", lv:5},
+  {k:"吹く", r:"ふく", ro:"fuku", m:"blow", g:"ku", lv:5},
+  {k:"磨く", r:"みがく", ro:"migaku", m:"brush / polish", g:"ku", lv:5},
+  // ---- N5 godan: ぐ ----
+  {k:"泳ぐ", r:"およぐ", ro:"oyogu", m:"swim", g:"gu", lv:5, gk:5},
+  {k:"脱ぐ", r:"ぬぐ", ro:"nugu", m:"take off (clothes)", g:"gu", lv:5},
+  {k:"急ぐ", r:"いそぐ", ro:"isogu", m:"hurry", g:"gu", lv:5, gk:6},
+  // ---- N5 godan: す ----
+  {k:"話す", r:"はなす", ro:"hanasu", m:"speak", g:"su", lv:5, gk:3},
+  {k:"消す", r:"けす", ro:"kesu", m:"turn off / erase", g:"su", lv:5, gk:6},
+  {k:"貸す", r:"かす", ro:"kasu", m:"lend", g:"su", lv:5},
+  {k:"出す", r:"だす", ro:"dasu", m:"take out / submit", g:"su", lv:5},
+  {k:"押す", r:"おす", ro:"osu", m:"push", g:"su", lv:5},
+  {k:"返す", r:"かえす", ro:"kaesu", m:"give back", g:"su", lv:5, gk:6},
+  // ---- 行く ----
+  {k:"行く", r:"いく", ro:"iku", m:"go", g:"iku", lv:5, trap:true, gk:3},
+  // ---- N5 ichidan ----
+  {k:"食べる", r:"たべる", ro:"taberu", m:"eat", g:"ichidan", lv:5, gk:3},
+  {k:"見る", r:"みる", ro:"miru", m:"see / watch", g:"ichidan", lv:5, gk:3},
+  {k:"寝る", r:"ねる", ro:"neru", m:"sleep", g:"ichidan", lv:5, gk:3},
+  {k:"起きる", r:"おきる", ro:"okiru", m:"wake up", g:"ichidan", lv:5, gk:3},
+  {k:"開ける", r:"あける", ro:"akeru", m:"open", g:"ichidan", lv:5, gk:6},
+  {k:"閉める", r:"しめる", ro:"shimeru", m:"close", g:"ichidan", lv:5, gk:6},
+  {k:"教える", r:"おしえる", ro:"oshieru", m:"teach / tell", g:"ichidan", lv:5, gk:6},
+  {k:"覚える", r:"おぼえる", ro:"oboeru", m:"memorize", g:"ichidan", lv:5, gk:9},
+  {k:"忘れる", r:"わすれる", ro:"wasureru", m:"forget", g:"ichidan", lv:5, gk:6},
+  {k:"借りる", r:"かりる", ro:"kariru", m:"borrow", g:"ichidan", lv:5, gk:6},
+  {k:"浴びる", r:"あびる", ro:"abiru", m:"take (a shower)", g:"ichidan", lv:5},
+  {k:"着る", r:"きる", ro:"kiru", m:"wear", g:"ichidan", lv:5, trap:true, gk:7},
+  {k:"出る", r:"でる", ro:"deru", m:"leave / exit", g:"ichidan", lv:5, gk:9},
+  {k:"見せる", r:"みせる", ro:"miseru", m:"show", g:"ichidan", lv:5},
+  {k:"降りる", r:"おりる", ro:"oriru", m:"get off", g:"ichidan", lv:5, gk:6},
+  {k:"つける", r:"つける", ro:"tsukeru", m:"turn on", g:"ichidan", lv:5, gk:6},
+  {k:"疲れる", r:"つかれる", ro:"tsukareru", m:"get tired", g:"ichidan", lv:5, gk:11},
+  // ---- N5 irregular ----
+  {k:"する", r:"する", ro:"suru", m:"do", g:"suru", lv:5, gk:3},
+  {k:"勉強する", r:"べんきょうする", ro:"benkyou suru", m:"study", g:"suru", lv:5, gk:3},
+  {k:"電話する", r:"でんわする", ro:"denwa suru", m:"phone", g:"suru", lv:5},
+  {k:"買い物する", r:"かいものする", ro:"kaimono suru", m:"shop", g:"suru", lv:5},
+  {k:"洗濯する", r:"せんたくする", ro:"sentaku suru", m:"do laundry", g:"suru", lv:5, gk:8},
+  {k:"散歩する", r:"さんぽする", ro:"sanpo suru", m:"take a walk", g:"suru", lv:5, gk:9},
+  {k:"来る", r:"くる", ro:"kuru", m:"come", g:"kuru", lv:5, gk:3},
+  // ---- N4 godan: う ----
+  {k:"笑う", r:"わらう", ro:"warau", m:"laugh", g:"u", lv:4},
+  {k:"払う", r:"はらう", ro:"harau", m:"pay", g:"u", lv:4, gk:10},
+  {k:"拾う", r:"ひろう", ro:"hirou", m:"pick up", g:"u", lv:4},
+  {k:"通う", r:"かよう", ro:"kayou", m:"commute", g:"u", lv:4},
+  {k:"手伝う", r:"てつだう", ro:"tetsudau", m:"help", g:"u", lv:4, gk:6},
+  // ---- N4 godan: つ ----
+  {k:"勝つ", r:"かつ", ro:"katsu", m:"win", g:"tsu", lv:4},
+  {k:"打つ", r:"うつ", ro:"utsu", m:"hit", g:"tsu", lv:4},
+  {k:"育つ", r:"そだつ", ro:"sodatsu", m:"grow up", g:"tsu", lv:4},
+  // ---- N4 godan: る ----
+  {k:"触る", r:"さわる", ro:"sawaru", m:"touch", g:"ru", lv:4},
+  {k:"踊る", r:"おどる", ro:"odoru", m:"dance", g:"ru", lv:4, gk:9},
+  {k:"直る", r:"なおる", ro:"naoru", m:"get fixed", g:"ru", lv:4},
+  {k:"決まる", r:"きまる", ro:"kimaru", m:"be decided", g:"ru", lv:4},
+  {k:"集まる", r:"あつまる", ro:"atsumaru", m:"gather", g:"ru", lv:4},
+  {k:"変わる", r:"かわる", ro:"kawaru", m:"change", g:"ru", lv:4},
+  {k:"泊まる", r:"とまる", ro:"tomaru", m:"stay overnight", g:"ru", lv:4, gk:10},
+  // ---- N4 godan: む ----
+  {k:"頼む", r:"たのむ", ro:"tanomu", m:"request", g:"mu", lv:4},
+  {k:"進む", r:"すすむ", ro:"susumu", m:"advance", g:"mu", lv:4},
+  {k:"盗む", r:"ぬすむ", ro:"nusumu", m:"steal", g:"mu", lv:4},
+  {k:"込む", r:"こむ", ro:"komu", m:"get crowded", g:"mu", lv:4},
+  // ---- N4 godan: ぶ ----
+  {k:"運ぶ", r:"はこぶ", ro:"hakobu", m:"carry", g:"bu", lv:4},
+  {k:"選ぶ", r:"えらぶ", ro:"erabu", m:"choose", g:"bu", lv:4},
+  {k:"喜ぶ", r:"よろこぶ", ro:"yorokobu", m:"be delighted", g:"bu", lv:4},
+  // ---- N4 godan: く ----
+  {k:"泣く", r:"なく", ro:"naku", m:"cry", g:"ku", lv:4},
+  {k:"置く", r:"おく", ro:"oku", m:"put / place", g:"ku", lv:4},
+  {k:"動く", r:"うごく", ro:"ugoku", m:"move", g:"ku", lv:4},
+  {k:"続く", r:"つづく", ro:"tsuzuku", m:"continue", g:"ku", lv:4},
+  {k:"驚く", r:"おどろく", ro:"odoroku", m:"be surprised", g:"ku", lv:4},
+  {k:"焼く", r:"やく", ro:"yaku", m:"grill / bake", g:"ku", lv:4},
+  // ---- N4 godan: ぐ ----
+  {k:"騒ぐ", r:"さわぐ", ro:"sawagu", m:"make noise", g:"gu", lv:4},
+  // ---- N4 godan: す ----
+  {k:"探す", r:"さがす", ro:"sagasu", m:"look for", g:"su", lv:4},
+  {k:"無くす", r:"なくす", ro:"nakusu", m:"lose (something)", g:"su", lv:4, gk:12},
+  {k:"渡す", r:"わたす", ro:"watasu", m:"hand over", g:"su", lv:4},
+  {k:"直す", r:"なおす", ro:"naosu", m:"fix", g:"su", lv:4},
+  {k:"思い出す", r:"おもいだす", ro:"omoidasu", m:"recall", g:"su", lv:4},
+  // ---- N4 ichidan ----
+  {k:"考える", r:"かんがえる", ro:"kangaeru", m:"think", g:"ichidan", lv:4},
+  {k:"答える", r:"こたえる", ro:"kotaeru", m:"answer", g:"ichidan", lv:4},
+  {k:"調べる", r:"しらべる", ro:"shiraberu", m:"look up", g:"ichidan", lv:4},
+  {k:"捨てる", r:"すてる", ro:"suteru", m:"throw away", g:"ichidan", lv:4},
+  {k:"続ける", r:"つづける", ro:"tsuzukeru", m:"keep doing", g:"ichidan", lv:4},
+  {k:"決める", r:"きめる", ro:"kimeru", m:"decide", g:"ichidan", lv:4, gk:10},
+  {k:"集める", r:"あつめる", ro:"atsumeru", m:"collect", g:"ichidan", lv:4},
+  {k:"比べる", r:"くらべる", ro:"kuraberu", m:"compare", g:"ichidan", lv:4},
+  {k:"慣れる", r:"なれる", ro:"nareru", m:"get used to", g:"ichidan", lv:4},
+  {k:"負ける", r:"まける", ro:"makeru", m:"lose (a game)", g:"ichidan", lv:4},
+  {k:"逃げる", r:"にげる", ro:"nigeru", m:"run away", g:"ichidan", lv:4},
+  {k:"足りる", r:"たりる", ro:"tariru", m:"be enough", g:"ichidan", lv:4},
+  {k:"信じる", r:"しんじる", ro:"shinjiru", m:"believe", g:"ichidan", lv:4},
+  {k:"感じる", r:"かんじる", ro:"kanjiru", m:"feel", g:"ichidan", lv:4},
+  {k:"生まれる", r:"うまれる", ro:"umareru", m:"be born", g:"ichidan", lv:4},
+  // ---- N4 する compounds ----
+  {k:"練習する", r:"れんしゅうする", ro:"renshuu suru", m:"practice", g:"suru", lv:4, gk:10},
+  {k:"準備する", r:"じゅんびする", ro:"junbi suru", m:"prepare", g:"suru", lv:4},
+  {k:"説明する", r:"せつめいする", ro:"setsumei suru", m:"explain", g:"suru", lv:4},
+  {k:"連絡する", r:"れんらくする", ro:"renraku suru", m:"contact", g:"suru", lv:4},
+
+  // ==================== N3 ====================
+  {k:"誘う", r:"さそう", ro:"sasou", m:"invite", g:"u", lv:3},
+  {k:"疑う", r:"うたがう", ro:"utagau", m:"doubt", g:"u", lv:3},
+  {k:"救う", r:"すくう", ro:"sukuu", m:"rescue", g:"u", lv:3},
+  {k:"味わう", r:"あじわう", ro:"ajiwau", m:"savor", g:"u", lv:3},
+  {k:"役立つ", r:"やくだつ", ro:"yakudatsu", m:"be useful", g:"tsu", lv:3},
+  {k:"目立つ", r:"めだつ", ro:"medatsu", m:"stand out", g:"tsu", lv:3},
+  {k:"守る", r:"まもる", ro:"mamoru", m:"protect", g:"ru", lv:3},
+  {k:"断る", r:"ことわる", ro:"kotowaru", m:"refuse", g:"ru", lv:3},
+  {k:"配る", r:"くばる", ro:"kubaru", m:"hand out", g:"ru", lv:3},
+  {k:"限る", r:"かぎる", ro:"kagiru", m:"limit", g:"ru", lv:3, trap:true},
+  {k:"減る", r:"へる", ro:"heru", m:"decrease", g:"ru", lv:3, trap:true},
+  {k:"黙る", r:"だまる", ro:"damaru", m:"go silent", g:"ru", lv:3},
+  {k:"悩む", r:"なやむ", ro:"nayamu", m:"worry", g:"mu", lv:3},
+  {k:"包む", r:"つつむ", ro:"tsutsumu", m:"wrap", g:"mu", lv:3},
+  {k:"畳む", r:"たたむ", ro:"tatamu", m:"fold", g:"mu", lv:3},
+  {k:"学ぶ", r:"まなぶ", ro:"manabu", m:"learn (deeply)", g:"bu", lv:3},
+  {k:"転ぶ", r:"ころぶ", ro:"korobu", m:"fall down", g:"bu", lv:3},
+  {k:"叫ぶ", r:"さけぶ", ro:"sakebu", m:"shout", g:"bu", lv:3},
+  {k:"気づく", r:"きづく", ro:"kizuku", m:"notice", g:"ku", lv:3},
+  {k:"叩く", r:"たたく", ro:"tataku", m:"knock / hit", g:"ku", lv:3},
+  {k:"抜く", r:"ぬく", ro:"nuku", m:"pull out", g:"ku", lv:3},
+  {k:"防ぐ", r:"ふせぐ", ro:"fusegu", m:"prevent", g:"gu", lv:3},
+  {k:"隠す", r:"かくす", ro:"kakusu", m:"hide", g:"su", lv:3},
+  {k:"倒す", r:"たおす", ro:"taosu", m:"knock down", g:"su", lv:3},
+  {k:"許す", r:"ゆるす", ro:"yurusu", m:"forgive", g:"su", lv:3},
+  {k:"増やす", r:"ふやす", ro:"fuyasu", m:"increase (sth)", g:"su", lv:3},
+  {k:"繰り返す", r:"くりかえす", ro:"kurikaesu", m:"repeat", g:"su", lv:3},
+  {k:"伝える", r:"つたえる", ro:"tsutaeru", m:"convey", g:"ichidan", lv:3},
+  {k:"支える", r:"ささえる", ro:"sasaeru", m:"support", g:"ichidan", lv:3},
+  {k:"諦める", r:"あきらめる", ro:"akirameru", m:"give up", g:"ichidan", lv:3},
+  {k:"確かめる", r:"たしかめる", ro:"tashikameru", m:"confirm", g:"ichidan", lv:3},
+  {k:"預ける", r:"あずける", ro:"azukeru", m:"entrust / deposit", g:"ichidan", lv:3},
+  {k:"届ける", r:"とどける", ro:"todokeru", m:"deliver", g:"ichidan", lv:3},
+  {k:"増える", r:"ふえる", ro:"fueru", m:"increase", g:"ichidan", lv:3},
+  {k:"燃える", r:"もえる", ro:"moeru", m:"burn", g:"ichidan", lv:3},
+  {k:"濡れる", r:"ぬれる", ro:"nureru", m:"get wet", g:"ichidan", lv:3},
+  {k:"慌てる", r:"あわてる", ro:"awateru", m:"panic", g:"ichidan", lv:3},
+  {k:"我慢する", r:"がまんする", ro:"gaman suru", m:"endure", g:"suru", lv:3},
+  {k:"想像する", r:"そうぞうする", ro:"souzou suru", m:"imagine", g:"suru", lv:3},
+  {k:"成功する", r:"せいこうする", ro:"seikou suru", m:"succeed", g:"suru", lv:3},
+
+  // ==================== N2 ====================
+  {k:"扱う", r:"あつかう", ro:"atsukau", m:"handle", g:"u", lv:2},
+  {k:"従う", r:"したがう", ro:"shitagau", m:"obey / follow", g:"u", lv:2},
+  {k:"争う", r:"あらそう", ro:"arasou", m:"compete", g:"u", lv:2},
+  {k:"伴う", r:"ともなう", ro:"tomonau", m:"accompany", g:"u", lv:2},
+  {k:"保つ", r:"たもつ", ro:"tamotsu", m:"maintain", g:"tsu", lv:2},
+  {k:"経つ", r:"たつ", ro:"tatsu", m:"(time) passes", g:"tsu", lv:2},
+  {k:"頼る", r:"たよる", ro:"tayoru", m:"rely on", g:"ru", lv:2},
+  {k:"握る", r:"にぎる", ro:"nigiru", m:"grip", g:"ru", lv:2, trap:true},
+  {k:"縛る", r:"しばる", ro:"shibaru", m:"tie up", g:"ru", lv:2},
+  {k:"焦る", r:"あせる", ro:"aseru", m:"panic / rush", g:"ru", lv:2, trap:true},
+  {k:"破る", r:"やぶる", ro:"yaburu", m:"tear / break", g:"ru", lv:2},
+  {k:"潜る", r:"もぐる", ro:"moguru", m:"dive", g:"ru", lv:2},
+  {k:"望む", r:"のぞむ", ro:"nozomu", m:"wish for", g:"mu", lv:2},
+  {k:"含む", r:"ふくむ", ro:"fukumu", m:"include", g:"mu", lv:2},
+  {k:"刻む", r:"きざむ", ro:"kizamu", m:"carve / chop", g:"mu", lv:2},
+  {k:"憎む", r:"にくむ", ro:"nikumu", m:"hate", g:"mu", lv:2},
+  {k:"結ぶ", r:"むすぶ", ro:"musubu", m:"tie / connect", g:"bu", lv:2},
+  {k:"及ぶ", r:"およぶ", ro:"oyobu", m:"extend to", g:"bu", lv:2},
+  {k:"輝く", r:"かがやく", ro:"kagayaku", m:"shine", g:"ku", lv:2},
+  {k:"傾く", r:"かたむく", ro:"katamuku", m:"tilt", g:"ku", lv:2},
+  {k:"描く", r:"えがく", ro:"egaku", m:"depict", g:"ku", lv:2},
+  {k:"導く", r:"みちびく", ro:"michibiku", m:"guide", g:"ku", lv:2},
+  {k:"稼ぐ", r:"かせぐ", ro:"kasegu", m:"earn", g:"gu", lv:2},
+  {k:"示す", r:"しめす", ro:"shimesu", m:"indicate", g:"su", lv:2},
+  {k:"見逃す", r:"みのがす", ro:"minogasu", m:"overlook", g:"su", lv:2},
+  {k:"抱える", r:"かかえる", ro:"kakaeru", m:"carry (a burden)", g:"ichidan", lv:2},
+  {k:"備える", r:"そなえる", ro:"sonaeru", m:"prepare for", g:"ichidan", lv:2},
+  {k:"訴える", r:"うったえる", ro:"uttaeru", m:"appeal / sue", g:"ichidan", lv:2},
+  {k:"優れる", r:"すぐれる", ro:"sugureru", m:"excel", g:"ichidan", lv:2},
+  {k:"触れる", r:"ふれる", ro:"fureru", m:"touch on", g:"ichidan", lv:2},
+  {k:"溢れる", r:"あふれる", ro:"afureru", m:"overflow", g:"ichidan", lv:2},
+  {k:"崩れる", r:"くずれる", ro:"kuzureru", m:"crumble", g:"ichidan", lv:2},
+  {k:"憧れる", r:"あこがれる", ro:"akogareru", m:"long for", g:"ichidan", lv:2},
+  {k:"責める", r:"せめる", ro:"semeru", m:"blame", g:"ichidan", lv:2},
+  {k:"維持する", r:"いじする", ro:"iji suru", m:"maintain", g:"suru", lv:2},
+  {k:"発揮する", r:"はっきする", ro:"hakki suru", m:"demonstrate (ability)", g:"suru", lv:2},
+  {k:"意識する", r:"いしきする", ro:"ishiki suru", m:"be conscious of", g:"suru", lv:2},
+
+  // ==================== N1 ====================
+  {k:"償う", r:"つぐなう", ro:"tsugunau", m:"atone", g:"u", lv:1},
+  {k:"賄う", r:"まかなう", ro:"makanau", m:"cover (costs)", g:"u", lv:1},
+  {k:"繕う", r:"つくろう", ro:"tsukurou", m:"mend", g:"u", lv:1},
+  {k:"漂う", r:"ただよう", ro:"tadayou", m:"drift", g:"u", lv:1},
+  {k:"断つ", r:"たつ", ro:"tatsu", m:"sever", g:"tsu", lv:1},
+  {k:"悟る", r:"さとる", ro:"satoru", m:"realize", g:"ru", lv:1},
+  {k:"誇る", r:"ほこる", ro:"hokoru", m:"boast", g:"ru", lv:1},
+  {k:"遮る", r:"さえぎる", ro:"saegiru", m:"block / interrupt", g:"ru", lv:1, trap:true},
+  {k:"罵る", r:"ののしる", ro:"nonoshiru", m:"curse at", g:"ru", lv:1, trap:true},
+  {k:"蘇る", r:"よみがえる", ro:"yomigaeru", m:"revive", g:"ru", lv:1, trap:true},
+  {k:"滞る", r:"とどこおる", ro:"todokooru", m:"be delayed", g:"ru", lv:1},
+  {k:"侮る", r:"あなどる", ro:"anadoru", m:"underestimate", g:"ru", lv:1},
+  {k:"練る", r:"ねる", ro:"neru", m:"refine (a plan)", g:"ru", lv:1, trap:true},
+  {k:"挑む", r:"いどむ", ro:"idomu", m:"challenge", g:"mu", lv:1},
+  {k:"拒む", r:"こばむ", ro:"kobamu", m:"refuse / reject", g:"mu", lv:1},
+  {k:"営む", r:"いとなむ", ro:"itonamu", m:"run (a business)", g:"mu", lv:1},
+  {k:"育む", r:"はぐくむ", ro:"hagukumu", m:"nurture", g:"mu", lv:1},
+  {k:"惜しむ", r:"おしむ", ro:"oshimu", m:"begrudge", g:"mu", lv:1},
+  {k:"滲む", r:"にじむ", ro:"nijimu", m:"blur / seep", g:"mu", lv:1},
+  {k:"嘆く", r:"なげく", ro:"nageku", m:"lament", g:"ku", lv:1},
+  {k:"欺く", r:"あざむく", ro:"azamuku", m:"deceive", g:"ku", lv:1},
+  {k:"貫く", r:"つらぬく", ro:"tsuranuku", m:"carry through", g:"ku", lv:1},
+  {k:"裁く", r:"さばく", ro:"sabaku", m:"judge", g:"ku", lv:1},
+  {k:"暴く", r:"あばく", ro:"abaku", m:"expose", g:"ku", lv:1},
+  {k:"凌ぐ", r:"しのぐ", ro:"shinogu", m:"weather / endure", g:"gu", lv:1},
+  {k:"研ぐ", r:"とぐ", ro:"togu", m:"sharpen", g:"gu", lv:1},
+  {k:"促す", r:"うながす", ro:"unagasu", m:"urge", g:"su", lv:1},
+  {k:"覆す", r:"くつがえす", ro:"kutsugaesu", m:"overturn", g:"su", lv:1},
+  {k:"施す", r:"ほどこす", ro:"hodokosu", m:"bestow", g:"su", lv:1},
+  {k:"試みる", r:"こころみる", ro:"kokoromiru", m:"attempt", g:"ichidan", lv:1},
+  {k:"顧みる", r:"かえりみる", ro:"kaerimiru", m:"look back on", g:"ichidan", lv:1},
+  {k:"極める", r:"きわめる", ro:"kiwameru", m:"master", g:"ichidan", lv:1},
+  {k:"妨げる", r:"さまたげる", ro:"samatageru", m:"hinder", g:"ichidan", lv:1},
+  {k:"遂げる", r:"とげる", ro:"togeru", m:"accomplish", g:"ichidan", lv:1},
+  {k:"強いる", r:"しいる", ro:"shiiru", m:"force upon", g:"ichidan", lv:1},
+  {k:"率いる", r:"ひきいる", ro:"hikiiru", m:"lead", g:"ichidan", lv:1},
+  {k:"老いる", r:"おいる", ro:"oiru", m:"grow old", g:"ichidan", lv:1},
+  {k:"把握する", r:"はあくする", ro:"haaku suru", m:"grasp / comprehend", g:"suru", lv:1},
+  {k:"妥協する", r:"だきょうする", ro:"dakyou suru", m:"compromise", g:"suru", lv:1},
+  {k:"克服する", r:"こくふくする", ro:"kokufuku suru", m:"overcome", g:"suru", lv:1},
+
+  // ==================== Genki I additions ====================
+  {k:"ある", r:"ある", ro:"aru", m:"there is (a thing)", g:"ru", lv:5, gk:4},
+  {k:"いる", r:"いる", ro:"iru", m:"(a person) is / exists", g:"ichidan", lv:5, gk:4},
+  {k:"やる", r:"やる", ro:"yaru", m:"to do / perform", g:"ru", lv:5, gk:5},
+  {k:"出かける", r:"でかける", ro:"dekakeru", m:"go out", g:"ichidan", lv:5, gk:5},
+  {k:"吸う", r:"すう", ro:"suu", m:"smoke / inhale", g:"u", lv:5, gk:6},
+  {k:"かける", r:"かける", ro:"kakeru", m:"make (a phone call)", g:"ichidan", lv:5, gk:6},
+  {k:"かぶる", r:"かぶる", ro:"kaburu", m:"put on (a hat)", g:"ru", lv:5, gk:7},
+  {k:"知る", r:"しる", ro:"shiru", m:"get to know", g:"ru", lv:5, gk:7, trap:true},
+  {k:"はく", r:"はく", ro:"haku", m:"put on (pants/shoes)", g:"ku", lv:5, gk:7},
+  {k:"太る", r:"ふとる", ro:"futoru", m:"gain weight", g:"ru", lv:5, gk:7},
+  {k:"やせる", r:"やせる", ro:"yaseru", m:"lose weight", g:"ichidan", lv:5, gk:7},
+  {k:"結婚する", r:"けっこんする", ro:"kekkon suru", m:"get married", g:"suru", lv:5, gk:7},
+  {k:"言う", r:"いう", ro:"iu", m:"say", g:"u", lv:5, gk:8},
+  {k:"始める", r:"はじめる", ro:"hajimeru", m:"begin (something)", g:"ichidan", lv:5, gk:8},
+  {k:"運転する", r:"うんてんする", ro:"unten suru", m:"drive", g:"suru", lv:5, gk:8},
+  {k:"掃除する", r:"そうじする", ro:"souji suru", m:"clean", g:"suru", lv:5, gk:8},
+  {k:"料理する", r:"りょうりする", ro:"ryouri suru", m:"cook", g:"suru", lv:5, gk:8},
+  {k:"始まる", r:"はじまる", ro:"hajimaru", m:"(something) begins", g:"ru", lv:5, gk:9},
+  {k:"弾く", r:"ひく", ro:"hiku", m:"play (piano/guitar)", g:"ku", lv:5, gk:9},
+  {k:"もらう", r:"もらう", ro:"morau", m:"receive", g:"u", lv:5, gk:9},
+  {k:"運動する", r:"うんどうする", ro:"undou suru", m:"exercise", g:"suru", lv:5, gk:9},
+  {k:"なる", r:"なる", ro:"naru", m:"become", g:"ru", lv:5, gk:10},
+  {k:"飼う", r:"かう", ro:"kau", m:"own (a pet)", g:"u", lv:4, gk:11},
+  {k:"取る", r:"とる", ro:"toru", m:"take (a class)", g:"ru", lv:5, gk:11},
+  {k:"登る", r:"のぼる", ro:"noboru", m:"climb", g:"ru", lv:4, gk:11},
+  {k:"やめる", r:"やめる", ro:"yameru", m:"quit", g:"ichidan", lv:4, gk:11},
+  {k:"けんかする", r:"けんかする", ro:"kenka suru", m:"have a fight", g:"suru", lv:4, gk:11},
+  {k:"紹介する", r:"しょうかいする", ro:"shoukai suru", m:"introduce", g:"suru", lv:4, gk:11},
+  {k:"ダイエットする", r:"ダイエットする", ro:"daietto suru", m:"go on a diet", g:"suru", lv:5, gk:11},
+  {k:"遅刻する", r:"ちこくする", ro:"chikoku suru", m:"be late", g:"suru", lv:4, gk:11},
+  {k:"留学する", r:"りゅうがくする", ro:"ryuugaku suru", m:"study abroad", g:"suru", lv:4, gk:11},
+  {k:"別れる", r:"わかれる", ro:"wakareru", m:"break up / separate", g:"ichidan", lv:4, gk:12},
+  {k:"緊張する", r:"きんちょうする", ro:"kinchou suru", m:"get nervous", g:"suru", lv:4, gk:12},
+  {k:"心配する", r:"しんぱいする", ro:"shinpai suru", m:"worry", g:"suru", lv:4, gk:12},
+];
+
+const RULES = {
+  u:       "う・つ・る → って",
+  tsu:     "う・つ・る → って",
+  ru:      "う・つ・る → って",
+  mu:      "ぶ・む・ぬ → んで",
+  bu:      "ぶ・む・ぬ → んで",
+  nu:      "ぶ・む・ぬ → んで",
+  ku:      "く → いて",
+  gu:      "ぐ → いで",
+  su:      "す → して",
+  ichidan: "る-verb: drop る, add て",
+  iku:     "行く is THE exception: 行って",
+  suru:    "irregular: する → して",
+  kuru:    "irregular: 来る → 来て（きて）",
+};
+
+const SUFFIX = { u:"って", tsu:"って", ru:"って", mu:"んで", bu:"んで", nu:"んで", ku:"いて", gu:"いで", su:"して" };
+
+function conj(str, g){
+  if (g === "suru")   return str.slice(0, -2) + "して";
+  if (g === "kuru")   return str === "来る" ? "来て" : "きて";
+  if (g === "iku")    return str.slice(0, -1) + "って";
+  if (g === "ichidan")return str.slice(0, -1) + "て";
+  return str.slice(0, -1) + SUFFIX[g];
+}
+function teForm(v){ return conj(v.k, v.g); }
+function teKana(v){ return conj(v.r, v.g); }
+
+// masu-stem vowel for each godan ending (used to build the classic learner mistakes)
+const ISTEM = { u:"い", tsu:"ち", ru:"り", mu:"み", bu:"び", nu:"に", ku:"き", gu:"ぎ", su:"し" };
+
+// Build 3 wrong options, each tagged with WHY it's wrong.
+function distractors(v){
+  const k = v.k, g = v.g;
+  const s = k.slice(0, -1); // stem without final kana
+  const last = k.slice(-1);
+  const D = (t, why) => ({ t, why });
+  const masu = (st) => D(st, `${st} is the ます-stem + て. That works for ます (${s}${ISTEM[g] || ""}ます), but the て-form contracts instead.`);
+  switch (g) {
+    case "u":   return [ masu(s+"いて"), D(s+"うて", `${s}うて is dictionary form + て — that's actually Kansai dialect! Standard Japanese contracts う → って.`), D(s+"んで", `んで is for verbs ending in ぶ・む・ぬ. This one ends in う → って.`) ];
+    case "tsu": return [ masu(s+"ちて"), D(s+"つて", `So close — but it needs the SMALL っ: ${s}って, not big つ.`), D(s+"んで", `んで is for ぶ・む・ぬ verbs. つ → って.`) ];
+    case "ru":  return [ masu(s+"りて"), D(s+"るて", `You can't just glue て onto the dictionary form. This る is godan → って.`), D(s+"んで", `んで is for ぶ・む・ぬ verbs. Godan る → って.`) ];
+    case "mu":  return [ masu(s+"みて"), D(s+"んて", `Right pattern, wrong voicing — む softens the て to で: んで, not んて.`), D(s+"って", `って is for う・つ・る verbs. む → んで.`) ];
+    case "bu":  return [ masu(s+"びて"), D(s+"んて", `Almost — ぶ voices the て to で: んで.`), D(s+"って", `って is for う・つ・る verbs. ぶ → んで.`) ];
+    case "nu":  return [ masu(s+"にて"), D(s+"んて", `Almost — ぬ voices the て to で: んで.`), D(s+"って", `って is for う・つ・る verbs. ぬ → んで.`) ];
+    case "ku":  return [ masu(s+"きて"), D(s+"いで", `いで is only for ぐ (voiced) verbs. Plain く → いて.`), D(s+"って", `って is for う・つ・る verbs. く → いて.`) ];
+    case "gu":  return [ D(s+"いて", `ぐ is voiced, so its て voices too: いで, not いて.`), masu(s+"ぎて"), D(s+"って", `って is for う・つ・る verbs. ぐ → いで.`) ];
+    case "su":  return [ D(s+"いて", `いて is for く verbs. す → して.`), D(s+"すて", `You can't glue て straight onto the dictionary form. す → して (fun fact: す verbs are the one group where ます-stem + て just works).`), D(s+"って", `って is for う・つ・る verbs. す → して.`) ];
+    case "iku": return [ D(s+"いて", `The normal く rule would give ${s}いて — but 行く is the famous exception: 行って!`), D(s+"きて", `${s}きて is the ます-stem + て. 行く breaks all the rules: 行って.`), D(s+"んで", `んで is for ぶ・む・ぬ verbs. 行く → 行って (exception!).`) ];
+    case "ichidan": return [ D(s+"って", `No small っ needed! Ichidan verbs are gentle: just drop る, add て → ${s}て.`), D(s+"んで", `んで is for godan ぶ・む・ぬ verbs. This is an ichidan verb → ${s}て.`), D(k+"て", `Drop the る first! ${k}＋て is a double-verb pileup. → ${s}て.`) ];
+    case "suru": { const b = k.slice(0, -2); return [ D(b+"すって", `する doesn't follow godan rules — it's irregular: ${b}して.`), D(b+"するて", `Can't glue て to the dictionary form. する → して.`), D(b+"しんで", `しんで would mean dying! 😅 する → して.`) ]; }
+    case "kuru": return [ D("来って", `来る is irregular — no small っ. 来る → 来て（きて）.`), D("来んで", `んで is for ぶ・む・ぬ verbs. 来る → 来て（きて）.`), D("来るて", `Can't glue て onto the dictionary form. 来る → 来て（きて）.`) ];
+  }
+}
+
+// Assemble the 4 shuffled options for a verb.
+// avoidIdx: slot the correct answer occupied last round — usually dodge it so
+// the right answer doesn't camp in one position and feel un-shuffled.
+function makeOptions(v, avoidIdx){
+  const correct = { t: teForm(v), why: null, correct: true };
+  const wrong = distractors(v).filter(d => d && d.t !== correct.t);
+  // de-dupe
+  const seen = new Set([correct.t]);
+  const uniq = [];
+  for (const d of wrong) { if (!seen.has(d.t)) { seen.add(d.t); uniq.push(d); } }
+  const opts = [correct, ...uniq.slice(0, 3)];
+  for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [opts[i], opts[j]] = [opts[j], opts[i]]; }
+  const ci = opts.findIndex(o => o.correct);
+  if (avoidIdx != null && ci === avoidIdx && opts.length > 1 && Math.random() < 0.8) {
+    const others = opts.map((_, i) => i).filter(i => i !== ci);
+    const j = others[Math.floor(Math.random() * others.length)];
+    [opts[ci], opts[j]] = [opts[j], opts[ci]];
+  }
+  return opts;
+}
+// Progressive hints toward the correct answer (shown one at a time after each miss).
+function hintsFor(v){
+  const k = v.k, g = v.g, last = k.slice(-1);
+  if (g === "ichidan"){
+    const h1 = v.trap
+      ? `${k}（${v.r}）is ichidan — don't mix it up with its godan look-alike!`
+      : `${k} is an ichidan (る) verb — ichidan て-forms never contract.`;
+    return [h1, "Ichidan rule: drop the る, add て. Nothing else changes.", `So take 「${k.slice(0,-1)}」 and just add て.`];
+  }
+  if (g === "suru") return [`${k} is a する verb — the irregular one.`, "する always becomes して. No exceptions.", `So: 「${k.slice(0,-2)}」 + して.`];
+  if (g === "kuru") return ["来る is one of only two irregular verbs.", "来る（くる）→ 来て（きて）. Just memorize this one!"];
+  if (g === "iku")  return ["行く LOOKS like a regular く verb… but it's the famous exception.", "Don't use the く → いて rule here.", "行く doubles up like a つ verb: 行 + って."];
+  const h1 = (v.trap && g === "ru")
+    ? `Careful — ${k} ends in る but it is NOT ichidan. It's one of the godan imposters!`
+    : `${k} is a godan verb, so its て-form contracts. Which group is 「${last}」 in?`;
+  return [h1, `The rule for 「${last}」: ${RULES[g]}`, `So drop 「${last}」 and attach 「${SUFFIX[g]}」.`];
+}
+
+// Example sentences: hand-written for common/tricky verbs, sensible template otherwise.
+const EX = {
+  "行く":["学校に行ってきます。","I'm off to school!"],
+  "来る":["ちょっと来てください。","Come here for a second."],
+  "する":["宿題をしてから、遊びます。","After doing my homework, I'll play."],
+  "食べる":["朝ごはんを食べてから、出かけます。","I eat breakfast, then head out."],
+  "飲む":["水をたくさん飲んでください。","Please drink lots of water."],
+  "死ぬ":["金魚が死んでしまいました。","My goldfish (sadly) died."],
+  "分かる":["分かってくれて、ありがとう。","Thanks for understanding."],
+  "生まれる":["日本で生まれて、アメリカで育ちました。","Born in Japan, raised in America."],
+  "帰る":["家に帰って、すぐ寝ました。","I went home and went straight to bed."],
+  "見る":["この映画を見てみてください。","Give this movie a watch."],
+  "書く":["名前をここに書いてください。","Please write your name here."],
+  "待つ":["ちょっと待ってください！","Wait a second, please!"],
+  "聞く":["よく聞いてください。","Please listen carefully."],
+  "買う":["新しいくつを買って、うれしいです。","I bought new shoes and I'm happy."],
+  "読む":["この本を読んでみて。","Try reading this book."],
+  "泳ぐ":["海で泳いで、日焼けしました。","I swam in the sea and got sunburned."],
+  "話す":["ゆっくり話してください。","Please speak slowly."],
+  "着る":["コートを着て、出かけました。","I put on my coat and went out."],
+  "切る":["はさみで紙を切ってください。","Please cut the paper with scissors."],
+  "疲れる":["働きすぎて、疲れています。","I overworked and I'm tired."],
+  "住む":["東京に住んでいます。","I live in Tokyo."],
+  "持つ":["ペンを持っています。","I have a pen (on me)."],
+  "勉強する":["日本語を勉強しています。","I'm studying Japanese."],
+};
+// verbs where 「〜ています」 (state) reads more naturally than 「〜ください」
+const STATE_TE = new Set(["終わる","込む","減る","増える","濡れる","燃える","崩れる","溢れる","優れる","慣れる","倒れる","変わる","決まる","集まる","直る","滞る","老いる","目立つ","役立つ","続く","輝く","傾く","経つ","かかる","育つ","蘇る"]);
+
+function exampleFor(v){
+  const te = teForm(v);
+  if (EX[v.k]) return { jp: EX[v.k][0], en: EX[v.k][1] };
+  if (STATE_TE.has(v.k)) return { jp: `${te}います。`, en: `"…is ${v.m}." (〜ています = ongoing state)` };
+  return { jp: `${te}ください。`, en: `"Please ${v.m}." (〜てください = polite request)` };
+}
+// ============================= LOGIC-END =============================
+
+// ------------------------------ LEVELS ------------------------------
+// One level per JLPT tier, every conjugation type mixed together so the
+// pattern never gives the answer away.
+const LEVELS = [
+  { name:"N5 PATROL",       desc:"JLPT N5 — every conjugation type, fully mixed", color:"#7dd3fc", f: v => v.lv===5 },
+  { name:"N4 SQUADRON",     desc:"JLPT N4 verbs (+ review of missed ones)",       color:"#4ade80", f: v => v.lv===4 },
+  { name:"N3 ARMADA",       desc:"JLPT N3 verbs",                                 color:"#fbbf24", f: v => v.lv===3 },
+  { name:"N2 FLEET",        desc:"JLPT N2 verbs",                                 color:"#a78bfa", f: v => v.lv===2 },
+  { name:"N1 MOTHERSHIP ∞", desc:"JLPT N1 + everything below — endless mode",     color:"#f87171", f: v => true },
+];
+const LEVEL_GOAL = 10; // first-try hits to clear a level
+
+// ------------------------------ GAME STATE ------------------------------
+// If anything crashes (especially on mobile webviews), show it instead of dying silently
+window.addEventListener("error", ev => {
+  let d = document.getElementById("errbadge");
+  if (!d){
+    d = document.createElement("div");
+    d.id = "errbadge";
+    d.style.cssText = "position:fixed;left:6px;bottom:6px;z-index:99;background:#7f1d1d;color:#fff;font-size:10px;padding:3px 8px;border-radius:6px;max-width:86vw;";
+    document.body.appendChild(d);
+  }
+  d.textContent = "⚠ " + ev.message;
+});
+
+// Buttons respond to raw touch as well as click — some mobile webviews eat clicks
+function onTap(el, fn){
+  let touched = 0;
+  el.addEventListener("touchend", ev => { touched = Date.now(); ev.preventDefault(); fn(ev); }, { passive:false });
+  el.addEventListener("click", ev => { if (Date.now() - touched < 700) return; fn(ev); });
+}
+
+const cv = document.getElementById("game");
+const ctx = cv.getContext("2d");
+// Layout is DYNAMIC: recomputed on load and whenever the window resizes before launch
+// (mobile webviews often report a bogus size at first paint).
+let PORTRAIT = false, W = 960, H = 600, SHIP_Y = 514;
+function shipY(){ return SHIP_Y - S.lift; }
+function applyLayout(){
+  PORTRAIT = window.innerHeight > window.innerWidth * 1.1;
+  W = PORTRAIT ? 620 : 960;
+  H = PORTRAIT ? 840 : 600;
+  SHIP_Y = PORTRAIT ? H-190 : H-86;
+  cv.width = W; cv.height = H;
+  document.getElementById("stage").style.aspectRatio = W + " / " + H;
+  document.body.classList.toggle("portrait", PORTRAIT);
+  // reserve room for the HUD bar; never let the stage outgrow the viewport
+  document.getElementById("wrap").style.width =
+    `min(96vw, 980px, calc((100vh - 120px)*${(W/H).toFixed(4)}))`;
+  stars = Array.from({length:90}, () => ({ x:Math.random()*W, y:Math.random()*H, z:.3+Math.random()*.9 }));
+  S.shipX = W/2; S.aimX = W/2;
+}
+
+const S = {
+  running:false, paused:false, mode:"playing", // playing | retry | transition
+  levelIdx:0, levelHits:0,
+  score:0, streak:0, best:0,
+  rounds:0, firstTry:0,
+  verb:null, lastVerbKey:null, opts:[], lastCorrectIdx:null,
+  enemies:[], bullets:[], parts:[], frags:[],
+  power:0, gunLevel:1, flash:0, lift:0,
+  debris:[], warpT:0,
+  praiseIn: 3, recent:[],
+  modeName:"cadet", lives:3, wrongCount:0,
+  shipX: W/2, shipAngle: 0, aimX: W/2, aimY: 120,
+  cooldown:0, t:0,
+  missed: new Map(), // key -> {misses, due}
+  mastered: new Set(), // first-try-correct verbs, removed from rotation
+  genkiCh: 0, // 0 = JLPT levels; 3-12 = Genki I mode, verbs through this lesson
+  soundOn:true,
+};
+
+// starfield (filled by applyLayout)
+let stars = [];
+applyLayout();
+window.addEventListener("resize", () => { if (!S.running) applyLayout(); });
+window.addEventListener("orientationchange", () => { if (!S.running) setTimeout(applyLayout, 250); });
+
+// ------------------------------ AUDIO ------------------------------
+let AC = null;
+function beep(freq, dur, type="square", vol=0.05, when=0, slide=0){
+  if (!S.soundOn) return;
+  try {
+    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, AC.currentTime+when);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40,freq+slide), AC.currentTime+when+dur);
+    g.gain.setValueAtTime(vol, AC.currentTime+when);
+    g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime+when+dur);
+    o.connect(g).connect(AC.destination);
+    o.start(AC.currentTime+when); o.stop(AC.currentTime+when+dur+.02);
+  } catch(e){}
+}
+const sfx = {
+  shoot: () => beep(880, .09, "square", .04, 0, -600),
+  hit:   () => { beep(523,.09,"square",.05); beep(659,.09,"square",.05,.08); beep(784,.14,"square",.05,.16); },
+  wrong: () => beep(140, .35, "sawtooth", .06, 0, -60),
+  retry: () => { beep(523,.08,"square",.045); beep(784,.12,"square",.045,.07); },
+  level: () => { [523,659,784,1047].forEach((f,i)=>beep(f,.12,"square",.05,i*.09)); },
+};
+
+// ------------------------------ SRS / VERB PICKING ------------------------------
+function vkey(v){ return v.k + "|" + v.r; }
+
+function currentPool(){
+  if (S.genkiCh) return VERBS.filter(v => v.gk && v.gk <= S.genkiCh);
+  return VERBS.filter(LEVELS[S.levelIdx].f);
+}
+
+function pickVerb(){
+  const pool = currentPool();
+  // decrement "due" counters
+  for (const rec of S.missed.values()) rec.due--;
+  // due missed verbs come back on purpose — until you first-try them
+  const due = [...S.missed.entries()]
+    .filter(([k, r]) => r.due <= 0 && !S.recent.includes(k))
+    .map(([k]) => k);
+  if (due.length && Math.random() < 0.6) {
+    const key = due[Math.floor(Math.random()*due.length)];
+    const v = VERBS.find(x => vkey(x) === key);
+    if (v && vkey(v) !== S.lastVerbKey) return v;
+  }
+  // completed (first-try) verbs are out of the rotation until the set is cleared
+  let fresh = pool.filter(v => !S.mastered.has(vkey(v)));
+  if (!fresh.length){
+    pool.forEach(v => S.mastered.delete(vkey(v)));
+    fresh = pool;
+    showToast("🏆 Set cleared — every verb answered! Reshuffling the whole set…");
+  }
+  let cand = fresh;
+  if (!S.genkiCh && S.levelIdx === 4 && Math.random() < 0.6){
+    // endless: bias toward N1 but keep everything in rotation
+    const n1 = fresh.filter(v => v.lv === 1);
+    if (n1.length) cand = n1;
+  }
+  // avoid anything shown in the last few rounds whenever the pool allows
+  const notRecent = cand.filter(v => !S.recent.includes(vkey(v)));
+  if (notRecent.length) cand = notRecent;
+  let v, guard = 0;
+  do { v = cand[Math.floor(Math.random()*cand.length)]; } while (vkey(v) === S.lastVerbKey && cand.length > 1 && ++guard < 20);
+  return v;
+}
+
+function recordMiss(v){
+  const k = vkey(v);
+  const rec = S.missed.get(k) || { misses:0, due:0 };
+  rec.misses++; rec.due = 3 + Math.floor(Math.random()*3); // 3-5 rounds out
+  S.missed.set(k, rec);
+}
+function recordFirstTryHit(v){
+  const k = vkey(v);
+  const rec = S.missed.get(k);
+  if (rec) { rec.misses--; if (rec.misses <= 0) S.missed.delete(k); else rec.due = 5; }
+  S.mastered.add(k); // completed — out of the rotation until the set is cleared
+}
+
+// ------------------------------ ROUNDS ------------------------------
+function danger(){ return S.modeName !== "study"; } // cadet & hero: descent + lives + armor
+function descentFactor(){ return S.modeName === "hero" ? 2 : (S.modeName === "cadet" ? 1 : 0); }
+function armorHp(){ return Math.max(1, 4 - S.gunLevel); } // LV1:3 hits, LV2:2, LV3+:1
+
+function newRound(keepVerb){
+  if (!keepVerb){
+    S.verb = pickVerb();
+    S.lastVerbKey = vkey(S.verb);
+    S.rounds++;
+    S.recent.push(vkey(S.verb));
+    if (S.recent.length > 3) S.recent.shift();
+  }
+  S.opts = makeOptions(S.verb, S.lastCorrectIdx);
+  S.lastCorrectIdx = S.opts.findIndex(o => o.correct);
+  S.wrongCount = 0;
+  S.mode = "playing";
+  // the explanation box stays visible so the last confirmation can be read
+  // spawn enemies in 4 slots, swooping in from top
+  S.enemies = S.opts.map((o, i) => {
+    ctx.font = `600 ${PORTRAIT ? 30 : 25}px sans-serif`;
+    const tw = ctx.measureText(o.t).width;
+    return {
+      opt:o, idx:i,
+      // portrait: 2x2 with staggered columns + wide row gap so meteors never pile up
+      baseX: (PORTRAIT
+        ? W * (Math.floor(i/2) === 0 ? (i%2 ? 0.65 : 0.35) : (i%2 ? 0.78 : 0.22))
+        : W*(i+1)/5) + (Math.random()*24-12),
+      baseY: PORTRAIT ? H*0.07 + Math.floor(i/2)*(H*0.17) : H*0.12 + (i%2)*34,
+      x:0, y:-60,
+      w: Math.max(PORTRAIT ? 104 : 94, tw + (PORTRAIT ? 48 : 42)), h: PORTRAIT ? 56 : 50,
+      phase: Math.random()*Math.PI*2,
+      swoop: 0, dead:false, dim:false, glow:false, shake:0,
+      hp: danger() ? armorHp() : 1, hits: 0,
+      // meteor look: jagged outline + craters + slow tumble
+      verts: Array.from({length:12}, () => 0.84 + Math.random()*0.30),
+      rot: (Math.random()-0.5)*0.16,
+      spin: (Math.random()-0.5)*0.004,
+      craters: Array.from({length:3}, () => ({
+        dx: (Math.random()*1.4-0.7),
+        dy: (Math.random()<0.5?-1:1) * (0.45+Math.random()*0.3),
+        r: 3+Math.random()*4,
+      })),
+    };
+  });
+  S.bullets = [];
+}
+
+function levelColor(){ return S.genkiCh ? "#34d399" : LEVELS[S.levelIdx].color; }
+
+function startWarp(){
+  // remaining meteors become debris streaking past the ship
+  for (const e of S.enemies){
+    if (e.dead) continue;
+    e.warpV = 3 + Math.random()*2;
+    e.warpDrift = (e.x < W/2 ? -1 : 1) * (0.6 + Math.random()*1.6);
+    S.debris.push(e);
+  }
+  S.enemies = [];
+  S.warpT = 34;
+}
+
+function onCorrectHit(e, firstTry){
+  explode(e.x, e.y, levelColor());
+  spawnFrags(e.x, e.y, firstTry ? 8 : 4);
+  e.dead = true;
+  startWarp();
+  const v = S.verb;
+  if (firstTry) {
+    S.streak++;
+    S.firstTry++;
+    S.levelHits++;
+    S.score += 100 + Math.min(S.streak,10)*10;
+    recordFirstTryHit(v);
+    sfx.hit();
+  } else {
+    S.score += 25;
+    sfx.retry();
+  }
+  const kana = teKana(v);
+  const teDisp = teForm(v) === kana ? teForm(v) : `${teForm(v)}（${kana}）`;
+  const ex = exampleFor(v);
+  showFeedback(`
+    <div class="fbtitle">✓ ${v.k}（${v.r}）→ ${teDisp}</div>
+    <div class="fbrule">Why: <b>${RULES[v.g]}</b></div>
+    <div class="fbex">${ex.jp}<br><span>${ex.en}</span></div>`, true);
+  if (firstTry && --S.praiseIn <= 0){
+    praise();
+    S.praiseIn = 2 + Math.floor(Math.random()*3); // every 2-4 successes
+  }
+  updateHUD();
+  S.mode = "transition";
+  setTimeout(() => {
+    if (!S.running) return;
+    if (!S.genkiCh && firstTry && S.levelHits >= LEVEL_GOAL && S.levelIdx < LEVELS.length-1) levelUp();
+    else newRound();
+  }, 750);
+}
+
+function onWrongHit(e){
+  S.streak = 0;
+  S.wrongCount++;
+  recordMiss(S.verb);
+  sfx.wrong();
+  if (danger()){ explode(e.x, e.y, "#94a3b8"); e.dead = true; }
+  else { e.dim = true; e.shake = 14; }
+  const hints = hintsFor(S.verb);
+  const hint = hints[Math.min(S.wrongCount-1, hints.length-1)];
+  showFeedback(`
+    <div class="fbtitle">✗ Not that one…</div>
+    <div class="fbwhy">${hint}</div>`, false);
+  S.mode = "retry";
+  updateHUD();
+}
+
+// -------- power-max gun upgrade --------
+const GUN_DESC = {
+  2: "Bigger shots — armored meteors crack in 2 hits.",
+  3: "Plasma bolts — armor means nothing now (1 hit)!",
+  4: "MAX POWER. Ludicrous, glorious plasma.",
+};
+function upgradeGuns(){
+  if (S.gunLevel >= 4){ S.power = 100; return; } // maxed: meter just stays full
+  S.gunLevel++;
+  S.power = 20;
+  S.flash = 18;
+  // celebratory ring burst from the ship
+  for (let i=0;i<44;i++){
+    const a = i/44*Math.PI*2;
+    S.parts.push({ x:S.shipX, y:shipY(), vx:Math.cos(a)*6, vy:Math.sin(a)*6, life:36, color: i%2 ? "#fde047" : levelColor() });
+  }
+  sfx.level();
+  retroSay("パワーアップ！");
+  showToast(`⚡ POWER MAX → GUNS LV${S.gunLevel}! ${GUN_DESC[S.gunLevel]}`);
+  updateHUD();
+}
+
+// -------- 8-bit radio chatter from Command --------
+const PRAISE = [
+  ["すばらしい！", "Subarashii! — Magnificent!"],
+  ["いちばん！", "Ichiban! — You're number one!"],
+  ["かんぺき！", "Kanpeki! — Flawless!"],
+  ["よくできました！", "Yoku dekimashita! — Well done!"],
+  ["てんさい！", "Tensai! — Genius!"],
+  ["そのちょうし！", "Sono choushi! — Keep it up!"],
+  ["やったね！", "Yatta ne! — You did it!"],
+  ["すごい！", "Sugoi! — Incredible!"],
+  ["ナイスショット！", "Naisu shotto! — Nice shot!"],
+  ["おみごと！", "O-migoto! — Bravo!"],
+  ["さすが！", "Sasuga! — That's our pilot!"],
+  ["いいぞ、いいぞ！", "Ii zo, ii zo! — Yeah, keep going!"],
+  ["かっこいい！", "Kakkoii! — So cool!"],
+  ["しんじられない！", "Shinjirarenai! — Unbelievable!"],
+  ["がんばれ、パイロット！", "Ganbare, pairotto! — Go, pilot!"],
+];
+function praise(){
+  const [jp, en] = PRAISE[Math.floor(Math.random()*PRAISE.length)];
+  showToast(`📣 COMMAND: <b>${jp}</b><div class="rule">${en}</div>`);
+  retroSay(jp);
+}
+// Retro "voice": square-wave syllable bleeps (the 8-bit part), then the words
+// spoken with a pitched-up Japanese voice (the 16-bit part).
+function retroSay(text){
+  if (!S.soundOn) return;
+  const sylls = Math.min(8, text.replace(/[ーっ！!。]/g, "").length);
+  for (let i=0;i<sylls;i++){
+    const f = 520 + Math.random()*380 + (i === sylls-1 ? -160 : 0);
+    beep(f, .08, "square", .05, i*0.085);
+  }
+  if (window.speechSynthesis){
+    try {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "ja-JP"; u.pitch = 1.8; u.rate = 1.1;
+      const jp = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith("ja"));
+      if (jp) u.voice = jp;
+      setTimeout(() => speechSynthesis.speak(u), sylls*85 + 60);
+    } catch(e){}
+  }
+}
+if (window.speechSynthesis) speechSynthesis.getVoices(); // warm up voice list
+
+// -------- hero mode: losing a ship --------
+function shipHit(){
+  S.lives--;
+  S.streak = 0;
+  explode(S.shipX, shipY(), "#fb923c");
+  explode(S.shipX, shipY(), "#f87171");
+  sfx.wrong();
+  updateHUD();
+  S.mode = "transition";
+  S.enemies.forEach(e => e.dead = true);
+  S.debris = [];
+  if (S.lives <= 0){ setTimeout(gameOver, 800); return; }
+  showToast(`💥 Ship down! ${"▲".repeat(S.lives)} left — same verb, go again!`);
+  setTimeout(() => { if (S.running) newRound(true); }, 1400);
+}
+
+function gameOver(){
+  S.running = false;
+  document.getElementById("goStats").textContent =
+    `SCORE ${S.score} · first-try accuracy ${S.rounds ? Math.round(100*S.firstTry/S.rounds) : 0}% · GUNS LV${S.gunLevel}`;
+  document.getElementById("gameover").classList.remove("hidden");
+}
+onTap(document.getElementById("btnAgain"), () => {
+  document.getElementById("gameover").classList.add("hidden");
+  document.getElementById("start").classList.remove("hidden");
+});
+
+function levelUp(){
+  S.levelIdx++;
+  S.levelHits = 0;
+  sfx.level();
+  const L = LEVELS[S.levelIdx];
+  document.getElementById("luName").textContent = `LV ${S.levelIdx+1} — ${L.name}`;
+  document.getElementById("luName").style.color = L.color;
+  document.getElementById("luDesc").textContent = L.desc;
+  const lu = document.getElementById("levelup");
+  lu.classList.remove("hidden");
+  setTimeout(() => { lu.classList.add("hidden"); if (S.running) newRound(); updateHUD(); }, 2300);
+}
+
+// ------------------------------ SHOOTING ------------------------------
+function shoot(targetEnemy){
+  if (!S.running || S.paused || S.mode === "transition") return;
+  if (S.cooldown > 0) return;
+  S.cooldown = Math.max(4, 12 - S.gunLevel*2); // higher gun level = faster fire
+  let vx, vy;
+  const sx = S.shipX, sy = shipY();
+  if (targetEnemy) {
+    const d = Math.hypot(targetEnemy.x - sx, targetEnemy.y - sy);
+    vx = (targetEnemy.x - sx)/d*16; vy = (targetEnemy.y - sy)/d*16;
+  } else {
+    vx = Math.sin(S.shipAngle)*16; vy = -Math.cos(S.shipAngle)*16;
+  }
+  S.bullets.push({ x:sx + vx*2.2, y:sy + vy*2.2, vx, vy, home: targetEnemy || null, lvl: S.gunLevel });
+  sfx.shoot();
+}
+
+// ------------------------------ EFFECTS ------------------------------
+function explode(x, y, color){
+  for (let i=0;i<26;i++){
+    const a = Math.random()*Math.PI*2, sp = 1+Math.random()*5;
+    S.parts.push({ x, y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:30+Math.random()*20, color });
+  }
+}
+
+// glowing meteor fragments that burst out, then get sucked into the ship
+function spawnFrags(x, y, count){
+  for (let i=0;i<count;i++){
+    const a = Math.random()*Math.PI*2, sp = 2+Math.random()*3;
+    S.frags.push({ x, y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, age:0, color:levelColor() });
+  }
+}
+
+// ------------------------------ UPDATE ------------------------------
+function update(){
+  S.t++;
+  if (S.cooldown>0) S.cooldown--;
+  if (S.flash>0) S.flash--;
+  if (S.warpT>0) S.warpT--;
+
+  // debris from the last round streaks down past the ship
+  for (const d of S.debris){
+    d.warpV *= 1.09;
+    d.baseY += d.warpV;
+    d.baseX += d.warpDrift * 2;
+    d.x = d.baseX; d.y = d.baseY;
+    d.rot += d.spin * 8;
+  }
+  S.debris = S.debris.filter(d => d.baseY < H + 140);
+
+  // portrait: measure the feedback bar and lift ship + verb box clear of it
+  let liftTarget = 0;
+  if (PORTRAIT){
+    const fb = document.getElementById("feedback");
+    if (!fb.classList.contains("hidden")){
+      const scale = cv.getBoundingClientRect().width / W;
+      const barTop = H - (fb.offsetHeight + 16) / scale;
+      liftTarget = Math.max(0, (H - 96 + 12) - barTop); // keep verb box bottom above the bar
+    }
+  }
+  S.lift += (liftTarget - S.lift) * 0.18;
+  const warpBoost = 1 + S.warpT*0.35;
+  for (const st of stars){ st.y += st.z*0.6*warpBoost; if (st.y>H){ st.y=-2; st.x=Math.random()*W; } }
+
+  // enemies swoop + bob (study mode: they hold perfectly still once in place)
+  const bobAmp = S.modeName === "study" ? 0 : 1;
+  for (const e of S.enemies){
+    if (e.dead) continue;
+    e.swoop = Math.min(1, e.swoop + 0.03);
+    const ease = 1-Math.pow(1-e.swoop, 3);
+    const bobX = Math.sin(S.t*0.02 + e.phase)*20*bobAmp;
+    const bobY = Math.sin(S.t*0.014 + e.phase*1.7)*8*bobAmp;
+    e.x = e.baseX + bobX;
+    e.y = -60 + (e.baseY + bobY + 60)*ease;
+    if (e.shake>0) e.shake--;
+  }
+
+  // ship eases toward center-ish based on aim (slight strafe for feel)
+  const targetX = W/2 + (S.aimX - W/2)*0.18;
+  S.shipX += (targetX - S.shipX)*0.08;
+  const dx = S.aimX - S.shipX, dy = shipY() - S.aimY;
+  S.shipAngle = Math.max(-1.15, Math.min(1.15, Math.atan2(dx, dy)));
+
+  // bullets
+  for (const b of S.bullets){
+    if (b.home && !b.home.dead){
+      const d = Math.hypot(b.home.x-b.x, b.home.y-b.y) || 1;
+      b.vx = (b.home.x-b.x)/d*16; b.vy = (b.home.y-b.y)/d*16;
+    }
+    b.x += b.vx; b.y += b.vy;
+  }
+  S.bullets = S.bullets.filter(b => b.y > -30 && b.x > -30 && b.x < W+30);
+
+  // cadet/hero: meteors descend toward the ship (hero = 2x speed)
+  if (danger() && (S.mode === "playing" || S.mode === "retry")){
+    const drop = (0.12 + S.levelIdx*0.04) * descentFactor();
+    for (const e of S.enemies){
+      if (!e.dead && !e.dim && e.swoop >= 1) e.baseY += drop;
+    }
+    if (S.enemies.some(e => !e.dead && !e.dim && e.y > shipY()-64)){ shipHit(); }
+  }
+
+  // collisions
+  if (S.mode === "playing" || S.mode === "retry"){
+    for (const b of S.bullets){
+      for (const e of S.enemies){
+        if (e.dead || e.dim) continue;
+        if (b.home && e !== b.home) continue; // targeted shots phase through blockers
+        if (Math.abs(b.x-e.x) < e.w/2+6 && Math.abs(b.y-e.y) < e.h/2+6){
+          b.y = -999;
+          e.hits++;
+          if (e.hits < e.hp){
+            // armored meteor: chip it, but don't reveal anything yet
+            e.shake = 8;
+            for (let i=0;i<5;i++){
+              const a = Math.random()*Math.PI*2;
+              S.parts.push({ x:e.x, y:e.y+e.h/2, vx:Math.cos(a)*2, vy:Math.abs(Math.sin(a))*2, life:16, color:"#94a3b8" });
+            }
+            beep(300, .05, "square", .04);
+          }
+          else if (e.opt.correct) onCorrectHit(e, S.mode === "playing");
+          else onWrongHit(e);
+          break;
+        }
+      }
+    }
+  }
+
+  // particles
+  for (const p of S.parts){ p.x+=p.vx; p.y+=p.vy; p.vy+=0.06; p.life--; }
+  S.parts = S.parts.filter(p => p.life>0);
+
+  // fragments: burst outward briefly, then home into the ship to power it up
+  const homeY = shipY();
+  for (const f of S.frags){
+    f.age++;
+    if (f.age <= 12){ f.x += f.vx; f.y += f.vy; f.vx *= 0.92; f.vy *= 0.92; }
+    else {
+      const dx = S.shipX - f.x, dy = homeY - f.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const sp = Math.min(18, 4 + (f.age-12)*0.6);
+      f.x += dx/d*sp; f.y += dy/d*sp;
+      if (d < 22){
+        f.done = true;
+        S.power = Math.min(100, S.power + 2);
+        beep(900 + S.power*8, .06, "sine", .02);
+        if (S.power >= 100) upgradeGuns();
+        updateHUD();
+      }
+    }
+  }
+  S.frags = S.frags.filter(f => !f.done);
+}
+
+// ------------------------------ DRAW ------------------------------
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  // stars
+  for (const st of stars){
+    ctx.globalAlpha = 0.25 + st.z*0.5;
+    ctx.fillStyle = "#cdd6ff";
+    const len = S.warpT > 0 ? 2 + S.warpT*st.z*0.55 : (st.z<0.7?1:2);
+    ctx.fillRect(st.x, st.y, st.z<0.7?1:2, len);
+  }
+  ctx.globalAlpha = 1;
+
+  // debris warping past the ship
+  ctx.globalAlpha = 0.7;
+  for (const d of S.debris) drawEnemy(d.x, d.y, d);
+  ctx.globalAlpha = 1;
+
+  // enemies
+  for (const e of S.enemies){
+    if (e.dead) continue;
+    const sx = e.x + (e.shake ? Math.sin(e.shake*2.1)*4 : 0);
+    drawEnemy(sx, e.y, e);
+  }
+
+  // bullets — each gun level fires a bigger, glowier shot
+  const BCOL = { 1:"#fef08a", 2:"#fde047", 3:"#fb923c", 4:"#f472b6" };
+  for (const b of S.bullets){
+    ctx.save(); ctx.translate(b.x,b.y);
+    ctx.rotate(Math.atan2(b.vx, -b.vy));
+    if (b.lvl > 1){
+      const rw = 3 + b.lvl*1.4, rh = 8 + b.lvl*2.5;
+      ctx.shadowColor = BCOL[b.lvl]; ctx.shadowBlur = 8 + b.lvl*4;
+      ctx.fillStyle = BCOL[b.lvl];
+      ctx.beginPath(); ctx.ellipse(0, 0, rw, rh, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = "#fffbe8";
+      ctx.beginPath(); ctx.ellipse(0, -2, rw*0.45, rh*0.5, 0, 0, 7); ctx.fill();
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.fillStyle = BCOL[1];
+      ctx.fillRect(-2,-9,4,14);
+    }
+    ctx.restore();
+  }
+
+  // particles
+  for (const p of S.parts){
+    ctx.globalAlpha = Math.min(1, p.life/24);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x-2, p.y-2, 4, 4);
+  }
+  ctx.globalAlpha = 1;
+
+  // homing fragments (glowing)
+  for (const f of S.frags){
+    ctx.shadowColor = f.color; ctx.shadowBlur = 10;
+    ctx.fillStyle = f.color;
+    ctx.beginPath(); ctx.arc(f.x, f.y, 3.2, 0, 7); ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+
+  drawShip();
+  drawVerbPlate();
+
+  // upgrade flash
+  if (S.flash > 0){
+    ctx.globalAlpha = (S.flash/18)*0.45;
+    ctx.fillStyle = "#fffbe8";
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawEnemy(x, y, e){
+  const { w, h } = e;
+  const rx = w/2 + 12, ry = h/2 + 13;
+  const edge = e.dim ? "#7f1d1d" : (e.glow ? "#4ade80" : "#525f94");
+  e.rot += e.spin;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(e.rot);
+  if (e.glow){ ctx.shadowColor = "#4ade80"; ctx.shadowBlur = 18 + Math.sin(S.t*0.15)*8; }
+  // jagged rock body
+  ctx.beginPath();
+  const n = e.verts.length;
+  for (let i = 0; i < n; i++){
+    const a = i/n * Math.PI*2;
+    const px = Math.cos(a)*rx*e.verts[i], py = Math.sin(a)*ry*e.verts[i];
+    i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+  }
+  ctx.closePath();
+  const grad = ctx.createRadialGradient(-rx*0.3, -ry*0.45, 4, 0, 0, rx);
+  grad.addColorStop(0, e.dim ? "#3d2b3d" : "#434b7e");
+  grad.addColorStop(1, e.dim ? "#241a28" : "#232948");
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.strokeStyle = edge; ctx.lineWidth = 2; ctx.stroke();
+  ctx.shadowBlur = 0;
+  // craters (kept near the rim so the text stays clean)
+  ctx.fillStyle = "rgba(5,6,15,.4)";
+  for (const c of e.craters){
+    ctx.beginPath(); ctx.arc(c.dx*rx*0.7, c.dy*ry*0.8, c.r, 0, 7); ctx.fill();
+  }
+  // cracks: red when shot down (study mode), pale while armor is chipping (hero mode)
+  if (e.dim || e.hits > 0){
+    ctx.strokeStyle = e.dim ? "rgba(248,113,113,.75)" : "rgba(205,214,255,.55)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-rx*0.55, -ry*0.3); ctx.lineTo(-rx*0.15, 0); ctx.lineTo(-rx*0.4, ry*0.45);
+    if (e.dim || e.hits > 1){
+      ctx.moveTo(rx*0.5, -ry*0.35); ctx.lineTo(rx*0.12, ry*0.08); ctx.lineTo(rx*0.42, ry*0.5);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+  // text drawn unrotated so it's always readable
+  ctx.fillStyle = e.dim ? "#8f5b6b" : "#eef1ff";
+  ctx.font = `600 ${PORTRAIT ? 30 : 25}px sans-serif`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(e.opt.t, x, y+1);
+  if (e.dim){
+    ctx.strokeStyle = "#f87171"; ctx.lineWidth = 2;
+    const tw = ctx.measureText(e.opt.t).width;
+    ctx.beginPath(); ctx.moveTo(x-tw/2-4, y); ctx.lineTo(x+tw/2+4, y); ctx.stroke();
+  }
+}
+
+function drawShip(){
+  const x = S.shipX, y = shipY(), c = levelColor();
+  // orbiting power sparks — one per 10 power
+  const orbs = Math.min(6, Math.floor(S.power/10));
+  for (let i=0;i<orbs;i++){
+    const a = S.t*0.05 + i*(Math.PI*2/orbs);
+    ctx.shadowColor = c; ctx.shadowBlur = 8;
+    ctx.fillStyle = c;
+    ctx.beginPath(); ctx.arc(x+Math.cos(a)*34, y+Math.sin(a)*30, 2.6, 0, 7); ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(S.shipAngle);
+  // flame grows with power
+  const fl = 1 + S.power*0.012;
+  ctx.fillStyle = "rgba(251,146,60," + (0.5+Math.random()*0.5) + ")";
+  ctx.beginPath();
+  ctx.moveTo(-6, 22); ctx.lineTo(0, (34+Math.random()*8)*fl); ctx.lineTo(6, 22); ctx.closePath(); ctx.fill();
+  // body — glow scales with collected fragments
+  ctx.fillStyle = c;
+  ctx.shadowColor = c; ctx.shadowBlur = 14 + Math.min(26, S.power*0.5);
+  ctx.beginPath();
+  ctx.moveTo(0, -26);
+  ctx.lineTo(16, 14); ctx.lineTo(8, 8); ctx.lineTo(0, 16); ctx.lineTo(-8, 8); ctx.lineTo(-16, 14);
+  ctx.closePath(); ctx.fill();
+  ctx.shadowBlur = 0;
+  // cockpit
+  ctx.fillStyle = "#05060f";
+  ctx.beginPath(); ctx.arc(0, -6, 5, 0, 7); ctx.fill();
+  ctx.restore();
+}
+
+function drawVerbPlate(){
+  if (!S.verb) return;
+  const v = S.verb;
+  const reading = v.k === v.r ? "" : `（${v.r}）`;
+  const line1 = v.k + reading;
+  const line2 = `${v.ro} — ${v.m}`;
+  ctx.textAlign = "center";
+  ctx.font = "800 30px sans-serif";
+  const w1 = ctx.measureText(line1).width;
+  ctx.font = "13px sans-serif";
+  const w2 = ctx.measureText(line2).width;
+  const w = Math.max(w1, w2) + 44;
+  const x = W/2, y = PORTRAIT ? H-122 - S.lift : H-30;
+  ctx.fillStyle = "rgba(13,17,38,.92)";
+  ctx.strokeStyle = levelColor(); ctx.lineWidth = 1.5;
+  roundRect(x-w/2, y-26, w, 52, 10); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#e8ecff";
+  ctx.font = "800 26px sans-serif"; ctx.textBaseline = "alphabetic";
+  ctx.fillText(line1, x, y+2);
+  ctx.fillStyle = "#8f9bce";
+  ctx.font = "12.5px sans-serif";
+  ctx.fillText(line2, x, y+19);
+}
+
+function roundRect(x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+
+// ------------------------------ HUD / OVERLAYS ------------------------------
+function updateHUD(){
+  const L = LEVELS[S.levelIdx];
+  const lvEl = document.getElementById("hudLevel");
+  if (S.genkiCh){
+    const n = currentPool().length;
+    lvEl.textContent = `GENKI I · L3–L${S.genkiCh} · ${S.mastered.size}/${n} done`;
+  } else {
+    lvEl.textContent = `LV ${S.levelIdx+1} · ${L.name}` + (S.levelIdx < LEVELS.length-1 ? ` · ${S.levelHits}/${LEVEL_GOAL}` : "");
+  }
+  lvEl.style.borderColor = levelColor(); lvEl.style.color = levelColor();
+  document.getElementById("hudScore").textContent = S.score;
+  document.getElementById("hudStreak").textContent = S.streak > 0 ? `🔥${S.streak}` : "0";
+  document.getElementById("hudAcc").textContent = S.rounds ? Math.round(100*S.firstTry/Math.max(1,S.rounds)) + "%" : "–";
+  document.getElementById("hudPwr").textContent = S.power + "/100";
+  document.getElementById("hudGun").textContent = "LV" + S.gunLevel;
+  document.getElementById("hudLives").textContent = danger() ? "SHIPS " + "▲".repeat(Math.max(0, S.lives)) : "";
+}
+
+let toastTimer = null;
+function showToast(html){
+  const t = document.getElementById("toast");
+  t.innerHTML = html;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 3200);
+}
+function showFeedback(html, ok){
+  const f = document.getElementById("feedback");
+  f.innerHTML = html;
+  f.classList.toggle("ok", !!ok);
+  f.classList.remove("hidden");
+}
+function hideFeedback(){ document.getElementById("feedback").classList.add("hidden"); }
+
+// ------------------------------ INPUT ------------------------------
+function canvasPos(ev){
+  const r = cv.getBoundingClientRect();
+  const cx = (ev.clientX - r.left) / r.width * W;
+  const cy = (ev.clientY - r.top) / r.height * H;
+  return { x: cx, y: cy };
+}
+// click/tap directly on a meteor = lock onto that meteor (the shot ignores anything in the way)
+function enemyAt(x, y){
+  return S.enemies.find(e => !e.dead && !e.dim &&
+    Math.abs(x-e.x) < e.w/2+16 && Math.abs(y-e.y) < e.h/2+18);
+}
+cv.addEventListener("mousemove", ev => { const p = canvasPos(ev); S.aimX = p.x; S.aimY = p.y; });
+cv.addEventListener("mousedown", ev => {
+  const p = canvasPos(ev); S.aimX = p.x; S.aimY = p.y;
+  shoot(enemyAt(p.x, p.y));
+});
+cv.addEventListener("touchstart", ev => {
+  ev.preventDefault();
+  const t = ev.touches[0]; const p = canvasPos(t);
+  S.aimX = p.x; S.aimY = p.y;
+  shoot(enemyAt(p.x, p.y));
+}, { passive:false });
+cv.addEventListener("touchmove", ev => {
+  ev.preventDefault();
+  const t = ev.touches[0]; const p = canvasPos(t);
+  S.aimX = p.x; S.aimY = p.y; // drag to aim
+}, { passive:false });
+
+const keys = {};
+window.addEventListener("keydown", ev => {
+  if (ev.repeat) return;
+  keys[ev.key] = true;
+  if (ev.key === " ") { ev.preventDefault(); shoot(); }
+  if (ev.key >= "1" && ev.key <= "4") {
+    const alive = S.enemies.filter(e => !e.dead);
+    const e = S.enemies[+ev.key - 1];
+    if (e && !e.dead && alive.length) shoot(e);
+  }
+  if (ev.key === "h" || ev.key === "H") toggleCheat();
+});
+window.addEventListener("keyup", ev => { keys[ev.key] = false; });
+
+function keyboardAim(){
+  const ROT = 0.045;
+  if (keys["ArrowLeft"])  { S.shipAngle -= ROT; syncAimToAngle(); }
+  if (keys["ArrowRight"]) { S.shipAngle += ROT; syncAimToAngle(); }
+}
+function syncAimToAngle(){
+  S.shipAngle = Math.max(-1.15, Math.min(1.15, S.shipAngle));
+  S.aimX = S.shipX + Math.sin(S.shipAngle)*400;
+  S.aimY = shipY() - Math.cos(S.shipAngle)*400;
+}
+
+// ------------------------------ CHEAT SHEET ------------------------------
+function toggleCheat(){
+  const c = document.getElementById("cheat");
+  const showing = !c.classList.contains("hidden");
+  c.classList.toggle("hidden");
+  S.paused = !showing;
+}
+onTap(document.getElementById("btnCheat"), toggleCheat);
+onTap(document.getElementById("btnCheatClose"), toggleCheat);
+
+// ------------------------------ SOUND TOGGLE ------------------------------
+onTap(document.getElementById("btnSound"), () => {
+  S.soundOn = !S.soundOn;
+  document.getElementById("btnSound").textContent = S.soundOn ? "♪ ON" : "♪ OFF";
+});
+
+// ------------------------------ START ------------------------------
+let chosenMode = "cadet";
+function refreshGenkiRow(){
+  const on = document.getElementById("genkiOn").checked;
+  document.getElementById("levelPick").style.opacity = on ? 0.35 : 1;
+  document.getElementById("levelPick").style.pointerEvents = on ? "none" : "auto";
+}
+document.querySelectorAll("#modePick button").forEach(b => {
+  onTap(b, () => {
+    chosenMode = b.dataset.mode;
+    document.querySelectorAll("#modePick button").forEach(x => x.classList.toggle("sel", x === b));
+  });
+});
+refreshGenkiRow(); // genki starts checked — dim the JLPT level picker
+document.getElementById("genkiOn").addEventListener("change", refreshGenkiRow);
+document.getElementById("genkiSlider").addEventListener("input", () => {
+  document.getElementById("genkiLbl").textContent = document.getElementById("genkiSlider").value;
+});
+
+let chosenLevel = 0;
+const pickWrap = document.getElementById("levelPick");
+LEVELS.forEach((L, i) => {
+  const b = document.createElement("button");
+  b.textContent = `LV${i+1} ${L.name}`;
+  onTap(b, () => {
+    chosenLevel = i;
+    [...pickWrap.children].forEach((c, j) => {
+      c.classList.toggle("sel", j===i);
+      c.style.background = j===i ? LEVELS[j].color : "";
+    });
+  });
+  pickWrap.appendChild(b);
+});
+pickWrap.children[0].classList.add("sel");
+pickWrap.children[0].style.background = LEVELS[0].color;
+
+onTap(document.getElementById("btnStart"), () => {
+  applyLayout(); // re-measure right at launch — mobile webviews lie at first paint
+  document.getElementById("start").classList.add("hidden");
+  S.levelIdx = chosenLevel;
+  S.levelHits = 0; S.score = 0; S.streak = 0; S.rounds = 0; S.firstTry = 0;
+  S.power = 0; S.frags = []; S.gunLevel = 1; S.flash = 0;
+  S.modeName = chosenMode; S.lives = 3;
+  S.genkiCh = document.getElementById("genkiOn").checked
+    ? +document.getElementById("genkiSlider").value : 0;
+  S.missed.clear();
+  S.mastered.clear();
+  hideFeedback();
+  S.running = true;
+  updateHUD();
+  newRound();
+  sfx.level();
+  retroSay("がんばって！"); // "Ganbatte!" — good luck out there, pilot
+});
+
+// ------------------------------ MAIN LOOP ------------------------------
+function loop(){
+  if (S.running && !S.paused){
+    keyboardAim();
+    update();
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+updateHUD();
+loop();
+</script>
+</body>
+</html>
