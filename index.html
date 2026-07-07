@@ -51,7 +51,7 @@
   /* ---------- overlays ---------- */
   .overlay{
     position:absolute; inset:0; z-index:10; display:flex; align-items:flex-start; justify-content:center;
-    background:rgba(5,6,15,.86); backdrop-filter:blur(3px); text-align:center; padding:16px;
+    background:rgba(5,6,15,.92); text-align:center; padding:16px;
     overflow-y:auto; /* scroll when content is taller than the stage */
   }
   .overlay .card{margin:auto; position:relative; z-index:1;}
@@ -161,9 +161,26 @@
     #cheat .card{padding:14px 14px;}
     #cheat table{font-size:11.5px;}
   }
+
+  /* ---------- loading screen ---------- */
+  #loading{position:fixed; inset:0; z-index:200; background:#05060f; display:flex;
+    flex-direction:column; align-items:center; justify-content:center; gap:18px; transition:opacity .45s ease;}
+  #loading.done{opacity:0; pointer-events:none;}
+  .ld-ring{width:48px; height:48px; border:3px solid #26305e; border-top-color:#7dd3fc;
+    border-radius:50%; animation:ldspin .8s linear infinite;}
+  @keyframes ldspin{to{transform:rotate(360deg);}}
+  .ld-txt{color:#7dd3fc; letter-spacing:2px; font-weight:800; font-size:19px; text-align:center;
+    background:linear-gradient(90deg,#7dd3fc,#a78bfa,#f472b6); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .ld-txt span{display:block; color:#8f9bce; font-weight:400; font-size:12.5px; letter-spacing:1px; margin-top:5px;
+    -webkit-text-fill-color:#8f9bce;}
+  .buildtag{margin-top:12px; color:#5a6591; font-size:11.5px; letter-spacing:1px;}
 </style>
 </head>
 <body>
+<div id="loading" aria-hidden="true">
+  <div class="ld-ring"></div>
+  <div class="ld-txt">TE-FORM BLASTER<span>loading…</span></div>
+</div>
 <div id="wrap">
   <div id="hud">
     <span class="badge" id="hudLevel">LV 1</span>
@@ -268,6 +285,7 @@
         </div>
         <div id="levelPick"></div>
         <button class="bigbtn" id="btnStart">LAUNCH ▶</button>
+        <div class="buildtag" id="buildTag">build v14</div>
       </div>
     </div>
 
@@ -884,6 +902,7 @@ function beep(freq, dur, type="square", vol=0.05, when=0, slide=0){
     g.gain.setValueAtTime(vol, AC.currentTime+when);
     g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime+when+dur);
     o.connect(g).connect(AC.destination);
+    o.onended = () => { try { o.disconnect(); g.disconnect(); } catch(e){} };
     o.start(AC.currentTime+when); o.stop(AC.currentTime+when+dur+.02);
   } catch(e){}
 }
@@ -903,6 +922,7 @@ function noiseBurst(dur=0.34, vol=0.09, f0=1700){
     g.gain.setValueAtTime(vol, AC.currentTime);
     g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime+dur);
     n.connect(f).connect(g).connect(AC.destination);
+    n.onended = () => { try { n.disconnect(); f.disconnect(); g.disconnect(); } catch(e){} };
     n.start();
   } catch(e){}
 }
@@ -1146,7 +1166,7 @@ function retroSay(text){
       u.lang = "ja-JP"; u.pitch = 1.0; u.rate = 1.0;
       const jp = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith("ja"));
       if (jp) u.voice = jp;
-      setTimeout(() => speechSynthesis.speak(u), sylls*85 + 60);
+      setTimeout(() => { try { speechSynthesis.cancel(); } catch(e){} speechSynthesis.speak(u); }, sylls*85 + 60);
     } catch(e){}
   }
 }
@@ -1326,6 +1346,7 @@ function update(){
   // particles
   for (const p of S.parts){ p.x+=p.vx; p.y+=p.vy; p.vy+=0.06; p.life--; }
   S.parts = S.parts.filter(p => p.life>0);
+  if (S.parts.length > 360) S.parts.splice(0, S.parts.length - 360); // defensive cap
 
   // fragments: burst outward briefly, then home into the ship to power it up
   const homeY = shipY();
@@ -1732,6 +1753,11 @@ function loop(){
 }
 updateHUD();
 loop();
+// reveal the game once the first frame is on screen
+requestAnimationFrame(() => {
+  const l = document.getElementById("loading");
+  if (l){ l.classList.add("done"); setTimeout(() => l.remove(), 500); }
+});
 </script>
 </body>
 </html>
