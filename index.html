@@ -283,6 +283,12 @@
           <input type="range" id="genkiSlider" min="3" max="12" value="6" style="width:300px; height:22px; accent-color:#34d399; margin:8px 0 2px;">
           <div style="color:var(--dim); font-size:11.5px; margin-bottom:10px;">L3 ─────────── L12 &nbsp;(lessons 1–2 have no verbs)</div>
         </div>
+        <div id="voiceRow" style="margin-bottom:14px;">
+          <label style="cursor:pointer; color:var(--dim); font-size:15.5px;">
+            <input type="checkbox" id="sayOn" checked>
+            <b style="color:#7dd3fc;">🔊 Speak the change</b> — after each hit, the voice says <b style="color:var(--text);">dictionary → て-form</b>
+          </label>
+        </div>
         <div id="levelPick"></div>
         <button class="bigbtn" id="btnStart">LAUNCH ▶</button>
         <div class="buildtag" id="buildTag">build v14</div>
@@ -843,6 +849,7 @@ const S = {
   mastered: new Set(), // first-try-correct verbs, removed from rotation
   genkiCh: 0, // 0 = JLPT levels; 3-12 = Genki I mode, verbs through this lesson
   soundOn:true,
+  sayBecomes:true, // speak "dict-form becomes te-form" after each correct hit
 };
 
 // starfield (filled by applyLayout)
@@ -1077,8 +1084,9 @@ function onCorrectHit(e, firstTry){
     <div class="fbtitle">✓ ${v.k}（${v.r}）→ ${teDisp}</div>
     <div class="fbrule">Why: <b>${RULES[v.g]}</b></div>
     <div class="fbex">${ex.jp}<br><span>${ex.en}</span></div>`, true);
+  sayBecomes(v); // speak "dict-form becomes te-form" first (start-page toggle)
   if (firstTry && --S.praiseIn <= 0){
-    praise();
+    praise();    // encouragement queues AFTER the "becomes" clip finishes
     S.praiseIn = 2 + Math.floor(Math.random()*3); // every 2-4 successes
   }
   updateHUD();
@@ -1151,24 +1159,87 @@ function praise(){
   showToast(`📣 COMMAND: <b>${jp}</b><div class="rule">${en}</div>`);
   retroSay(jp);
 }
-// Retro "voice": square-wave syllable bleeps (the 8-bit part), then the words
-// spoken with a pitched-up Japanese voice (the 16-bit part).
-function retroSay(text){
+
+// ---------------------------------------------------------------------------
+// VOICE QUEUE — plays spoken clips one after another instead of letting them
+// cancel each other. This is what lets the "becomes" clip finish before any
+// queued encouragement speaks. Each item: {text, bleeps, pitch, rate}.
+//   bleeps:true → the retro square-wave syllable intro (the 8-bit part) plays
+//                 right before the spoken words (the 16-bit part).
+// A generation counter (voiceGen) invalidates in-flight callbacks whenever the
+// queue is reset, so a cancelled utterance's late "end" event can't advance the
+// fresh queue.
+// ---------------------------------------------------------------------------
+let voiceQ = [], voiceBusy = false, voiceGen = 0;
+function voiceReset(){
+  voiceGen++; voiceQ = []; voiceBusy = false;
+  try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch(e){}
+}
+function enqueueVoice(item){
   if (!S.soundOn) return;
-  const sylls = Math.min(8, text.replace(/[ーっ！!。]/g, "").length);
-  for (let i=0;i<sylls;i++){
-    const f = 520 + Math.random()*380 + (i === sylls-1 ? -160 : 0);
-    beep(f, .08, "square", .05, i*0.085);
+  voiceQ.push(item);
+  if (!voiceBusy) playNextVoice();
+}
+function playNextVoice(){
+  if (!S.soundOn){ voiceQ = []; voiceBusy = false; return; }
+  const item = voiceQ.shift();
+  if (!item){ voiceBusy = false; return; }
+  voiceBusy = true;
+  const myGen = voiceGen;
+  const advance = () => {
+    if (myGen !== voiceGen) return;              // queue was reset — abandon
+    setTimeout(() => { if (myGen === voiceGen) playNextVoice(); }, 40);
+  };
+  const speakNow = () => {
+    if (myGen !== voiceGen) return;
+    let done = false;
+    const finish = () => { if (done) return; done = true; advance(); };
+    if (window.speechSynthesis){
+      try {
+        const u = new SpeechSynthesisUtterance(item.text);
+        u.lang = "ja-JP"; u.pitch = item.pitch ?? 1.0; u.rate = item.rate ?? 1.0;
+        const jp = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith("ja"));
+        if (jp) u.voice = jp;
+        u.onend = finish; u.onerror = finish;
+        speechSynthesis.speak(u);
+        // safety net: some browsers never fire onend — advance anyway
+        setTimeout(finish, 700 + item.text.length * 140 + 1500);
+      } catch(e){ finish(); }
+    } else {
+      setTimeout(finish, 600); // no TTS: still pace the queue so bleeps sequence
+    }
+  };
+  if (item.bleeps){
+    const sylls = Math.min(8, item.text.replace(/[ーっ！!。、]/g, "").length);
+    for (let i=0;i<sylls;i++){
+      const f = 520 + Math.random()*380 + (i === sylls-1 ? -160 : 0);
+      beep(f, .08, "square", .05, i*0.085);
+    }
+    setTimeout(() => { if (myGen === voiceGen) speakNow(); }, sylls*85 + 60);
+  } else {
+    speakNow();
   }
-  if (window.speechSynthesis){
-    try {
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "ja-JP"; u.pitch = 1.0; u.rate = 1.0;
-      const jp = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith("ja"));
-      if (jp) u.voice = jp;
-      setTimeout(() => { try { speechSynthesis.cancel(); } catch(e){} speechSynthesis.speak(u); }, sylls*85 + 60);
-    } catch(e){}
-  }
+}
+// Retro "voice": square-wave syllable bleeps (8-bit) + a Japanese TTS voice
+// (16-bit). Now routed through the queue so clips serialize cleanly.
+function retroSay(text, opts){
+  if (!S.soundOn) return;
+  enqueueVoice(Object.assign({ text, bleeps:true }, opts || {}));
+}
+
+// ---- "X becomes Y" clip, spoken after a correct hit -----------------------
+// Uses kana readings so the TTS pronounces every verb correctly.
+// Grammatically-correct "dictionary-form becomes te-form":  〜は〜になる
+//   e.g. たべる は たべて に なる  ("taberu wa tabete ni naru")
+// SNAPPY ALTERNATIVE (shorter, just the two forms) — swap the return line for:
+//   return `${v.r}、${teKana(v)}`;
+function becomesPhrase(v){
+  return `${v.r}は${teKana(v)}になる`;
+}
+function sayBecomes(v){
+  if (!S.soundOn || !S.sayBecomes) return;
+  voiceReset();                                     // this hit's audio takes priority
+  enqueueVoice({ text: becomesPhrase(v), bleeps:false, rate:0.95 });
 }
 if (window.speechSynthesis) speechSynthesis.getVoices(); // warm up voice list
 
@@ -1683,6 +1754,7 @@ onTap(document.getElementById("btnCheatClose"), toggleCheat);
 // ------------------------------ SOUND TOGGLE ------------------------------
 onTap(document.getElementById("btnSound"), () => {
   S.soundOn = !S.soundOn;
+  if (!S.soundOn) voiceReset(); // cut off any clip mid-word when muting
   document.getElementById("btnSound").textContent = S.soundOn ? "♪ ON" : "♪ OFF";
 });
 
@@ -1732,12 +1804,14 @@ onTap(document.getElementById("btnStart"), () => {
   S.modeName = chosenMode; S.lives = 3;
   S.genkiCh = document.getElementById("genkiOn").checked
     ? +document.getElementById("genkiSlider").value : 0;
+  S.sayBecomes = document.getElementById("sayOn").checked;
   S.missed.clear();
   S.mastered.clear();
   hideFeedback();
   S.running = true;
   updateHUD();
   newRound();
+  voiceReset();   // clear any leftover speech from a previous run
   sfx.level();
   retroSay("がんばって！"); // "Ganbatte!" — good luck out there, pilot
 });
